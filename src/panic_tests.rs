@@ -20,22 +20,6 @@ fn init(sys: &System) {
 }
 
 #[test]
-fn zero_address() {
-    let sys = System::new();
-    init(&sys);
-    let lt = sys.get_program(1);
-
-    let res = lt.send(
-        USERS[3],
-        LtAction::StartLottery {
-            duration: 5000,
-            token_address: None,
-        },
-    );
-    assert!(res.main_failed());
-}
-
-#[test]
 fn start_lottery() {
     let time = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -43,9 +27,12 @@ fn start_lottery() {
         .as_secs();
 
     let state = LotteryState {
+        lottery_owner: USERS[0].into(),
         lottery_started: true,
         lottery_start_time: time,
         lottery_duration: 5000,
+        participation_cost: 1000,
+        prize_fund: 2000,
     };
 
     let sys = System::new();
@@ -57,6 +44,8 @@ fn start_lottery() {
         LtAction::StartLottery {
             duration: 5000,
             token_address: None,
+            participation_cost: 1000,
+            prize_fund: 2000,
         },
     );
     assert!(res.log().is_empty());
@@ -66,6 +55,8 @@ fn start_lottery() {
         LtAction::StartLottery {
             duration: 30000,
             token_address: None,
+            participation_cost: 1000,
+            prize_fund: 2000,
         },
     );
     assert!(res.main_failed());
@@ -75,6 +66,8 @@ fn start_lottery() {
         LtAction::StartLottery {
             duration: 40000,
             token_address: None,
+            participation_cost: 1000,
+            prize_fund: 2000,
         },
     );
     assert!(res.main_failed());
@@ -99,6 +92,8 @@ fn enter() {
         LtAction::StartLottery {
             duration: 5000,
             token_address: None,
+            participation_cost: 1000,
+            prize_fund: 2000,
         },
     );
     assert!(res.log().is_empty());
@@ -106,10 +101,10 @@ fn enter() {
     let res = lt.send_with_value(USERS[0], LtAction::Enter(1000), 1000);
     assert!(res.contains(&(USERS[0], LtEvent::PlayerAdded(0).encode())));
 
-    let res = lt.send_with_value(USERS[1], LtAction::Enter(2000), 2000);
+    let res = lt.send_with_value(USERS[1], LtAction::Enter(1000), 1000);
     assert!(res.contains(&(USERS[1], LtEvent::PlayerAdded(1).encode())));
 
-    let res = lt.send_with_value(USERS[1], LtAction::Enter(3000), 3000);
+    let res = lt.send_with_value(USERS[1], LtAction::Enter(1000), 1000);
     assert!(res.main_failed());
 }
 
@@ -127,6 +122,8 @@ fn pick_winner() {
         LtAction::StartLottery {
             duration: 5000,
             token_address: None,
+            participation_cost: 1000,
+            prize_fund: 2000,
         },
     );
     assert!(res.log().is_empty());
@@ -137,7 +134,7 @@ fn pick_winner() {
     let res = lt.send_with_value(USERS[0], LtAction::Enter(1000), 1000);
     assert!(res.contains(&(USERS[0], LtEvent::PlayerAdded(0).encode())));
 
-    let res = lt.send_with_value(USERS[1], LtAction::Enter(2000), 2000);
+    let res = lt.send_with_value(USERS[1], LtAction::Enter(1000), 1000);
     assert!(res.contains(&(USERS[1], LtEvent::PlayerAdded(1).encode())));
 
     sys.spend_blocks(5000);

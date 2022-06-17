@@ -15,8 +15,6 @@ use gstd::{debug, exec, msg, prelude::*, ActorId};
 use lt_io::*;
 use scale_info::TypeInfo;
 
-const ZERO_ID: ActorId = ActorId::new([0u8; 32]);
-
 #[derive(Debug, Default, Encode, Decode, TypeInfo)]
 struct Lottery {
     lottery_state: LotteryState,
@@ -25,8 +23,9 @@ struct Lottery {
     players: BTreeMap<u32, Player>,
     lottery_history: BTreeMap<u32, ActorId>,
     lottery_id: u32,
-    lottery_balance: u128,
 }
+
+static mut LOTTERY: Option<Lottery> = None;
 
 impl Lottery {
     // checks that lottery has started and lottery time has not expired
@@ -43,19 +42,29 @@ impl Lottery {
     /// Arguments:
     /// * `duration`: lottery duration in milliseconds
     /// * `token_address`: address of Fungible Token contract
-    fn start_lottery(&mut self, duration: u64, token_address: Option<ActorId>) {
+    fn start_lottery(
+        &mut self,
+        duration: u64,
+        token_address: Option<ActorId>,
+        participation_cost: u128,
+        prize_fund: u128,
+    ) {
         if msg::source() == self.lottery_owner && !self.lottery_is_on() {
             self.lottery_state.lottery_started = true;
             self.lottery_state.lottery_start_time = exec::block_timestamp();
             self.lottery_state.lottery_duration = duration;
+            self.lottery_state.participation_cost = participation_cost;
+            self.lottery_state.prize_fund = prize_fund;
+            self.lottery_state.lottery_owner = self.lottery_owner;
             self.token_address = token_address;
-            self.lottery_id += 1;
-            self.lottery_balance = 0;
+            self.lottery_id = self.lottery_id.saturating_add(1);
         } else {
             panic!(
-                "start_lottery(): Lottery on: {}  Owner message: {}",
+                "start_lottery(): Lottery on: {}  Owner message: {}  source(): {:?}  owner: {:?}",
                 self.lottery_is_on(),
-                msg::source() == self.lottery_owner
+                msg::source() == self.lottery_owner,
+                msg::source(),
+                self.lottery_owner
             );
         }
     }
@@ -72,9 +81,15 @@ impl Lottery {
     /// * `from`: sender account
     /// * `to`: recipient account
     /// * `amount`: amount of tokens
-    async fn transfer_tokens(&mut self, from: &ActorId, to: &ActorId, amount_tokens: u128) {
-        let _transfer_response: FTEvent = msg::send_and_wait_for_reply(
-            self.token_address.unwrap(),
+    async fn transfer_tokens(
+        &mut self,
+        token_address: &ActorId,
+        from: &ActorId,
+        to: &ActorId,
+        amount_tokens: u128,
+    ) {
+        msg::send_and_wait_for_reply::<FTEvent, _>(
+            *token_address,
             FTAction::Transfer {
                 from: *from,
                 to: *to,
@@ -82,7 +97,7 @@ impl Lottery {
             },
             0,
         )
-        .expect("Error in sending message")
+        .unwrap()
         .await
         .expect("Error in transfer");
     }
@@ -95,19 +110,21 @@ impl Lottery {
     /// Arguments:
     /// * `amount`: value or tokens to participate in the lottery
     async fn enter(&mut self, amount: u128) {
-        if self.lottery_is_on() && !self.player_exists() && amount > 0 {
+        if self.lottery_is_on()
+            && !self.player_exists()
+            && amount == self.lottery_state.participation_cost
+        {
+            if let Some(token_address) = self.token_address {
+                self.transfer_tokens(&token_address, &msg::source(), &exec::program_id(), amount)
+                    .await;
+
+                debug!("Add in Fungible Token: {}", amount);
+            }
+
             let player = Player {
                 player_id: msg::source(),
                 balance: amount,
             };
-
-            if self.token_address.is_some() {
-                self.transfer_tokens(&msg::source(), &exec::program_id(), amount)
-                    .await;
-
-                self.lottery_balance += amount;
-                debug!("Add in Fungible Token: {}", amount);
-            }
 
             let player_index = self.players.len() as u32;
             self.players.insert(player_index, player);
@@ -140,14 +157,18 @@ impl Lottery {
             let win_player_index = *self.players.keys().nth(index).expect("Player not found");
             let player = self.players[&win_player_index];
 
-            if self.token_address.is_some() {
+            if let Some(token_address) = self.token_address {
                 debug!("Transfer tokens to the winner");
-                self.transfer_tokens(&exec::program_id(), &player.player_id, self.lottery_balance)
-                    .await;
-
-                self.lottery_balance = 0;
+                self.transfer_tokens(
+                    &token_address,
+                    &exec::program_id(),
+                    &player.player_id,
+                    self.lottery_state.prize_fund,
+                )
+                .await;
             } else {
-                msg::send_bytes(player.player_id, b"Winner", exec::value_available()).unwrap();
+                msg::send_bytes(player.player_id, b"Winner", self.lottery_state.prize_fund)
+                    .unwrap();
             }
 
             self.lottery_history
@@ -174,16 +195,10 @@ impl Lottery {
     }
 }
 
-static mut LOTTERY: Option<Lottery> = None;
-
 #[gstd::async_main]
 async fn main() {
-    if msg::source() == ZERO_ID {
-        panic!("Message from zero address");
-    }
-
+    let lottery = unsafe { LOTTERY.get_or_insert(Lottery::default()) };
     let action: LtAction = msg::load().expect("Could not load Action");
-    let lottery: &mut Lottery = unsafe { LOTTERY.get_or_insert(Lottery::default()) };
 
     match action {
         LtAction::Enter(amount) => {
@@ -193,8 +208,10 @@ async fn main() {
         LtAction::StartLottery {
             duration,
             token_address,
+            participation_cost,
+            prize_fund,
         } => {
-            lottery.start_lottery(duration, token_address);
+            lottery.start_lottery(duration, token_address, participation_cost, prize_fund);
         }
 
         LtAction::LotteryState => {
@@ -210,18 +227,19 @@ async fn main() {
 
 #[no_mangle]
 pub unsafe extern "C" fn init() {
-    let lottery = Lottery {
+    let mut lottery = Lottery {
         lottery_owner: msg::source(),
         ..Default::default()
     };
 
+    lottery.lottery_state.lottery_owner = lottery.lottery_owner;
     LOTTERY = Some(lottery);
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn meta_state() -> *mut [i32; 2] {
     let query: LtState = msg::load().expect("failed to decode input argument");
-    let lottery: &mut Lottery = LOTTERY.get_or_insert(Lottery::default());
+    let lottery = LOTTERY.get_or_insert(Lottery::default());
 
     let encoded = match query {
         LtState::GetPlayers => LtStateReply::Players(lottery.players.clone()).encode(),

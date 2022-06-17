@@ -6,9 +6,12 @@ use scale_info::TypeInfo;
 
 #[derive(Debug, Default, Encode, Decode, TypeInfo, Clone)]
 pub struct LotteryState {
+    pub lottery_owner: ActorId,
     pub lottery_started: bool,
     pub lottery_start_time: u64,
     pub lottery_duration: u64,
+    pub participation_cost: u128,
+    pub prize_fund: u128,
 }
 
 #[derive(Debug, Default, Encode, Decode, TypeInfo, Clone, Copy)]
@@ -23,6 +26,8 @@ pub enum LtAction {
     StartLottery {
         duration: u64,
         token_address: Option<ActorId>,
+        participation_cost: u128,
+        prize_fund: u128,
     },
     LotteryState,
     PickWinner,

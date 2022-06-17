@@ -27,9 +27,12 @@ fn start_lottery() {
         .as_secs();
 
     let state = LotteryState {
+        lottery_owner: USERS[0].into(),
         lottery_started: true,
         lottery_start_time: time,
         lottery_duration: 5000,
+        participation_cost: 1000,
+        prize_fund: 2000,
     };
 
     let sys = System::new();
@@ -41,6 +44,8 @@ fn start_lottery() {
         LtAction::StartLottery {
             duration: 5000,
             token_address: None,
+            participation_cost: 1000,
+            prize_fund: 2000,
         },
     );
     assert!(res.log().is_empty());
@@ -62,6 +67,8 @@ fn enter() {
         LtAction::StartLottery {
             duration: 5000,
             token_address: None,
+            participation_cost: 1000,
+            prize_fund: 2000,
         },
     );
     assert!(res.log().is_empty());
@@ -69,7 +76,7 @@ fn enter() {
     let res = lt.send_with_value(USERS[0], LtAction::Enter(1000), 1000);
     assert!(res.contains(&(USERS[0], LtEvent::PlayerAdded(0).encode())));
 
-    let res = lt.send_with_value(USERS[1], LtAction::Enter(2000), 2000);
+    let res = lt.send_with_value(USERS[1], LtAction::Enter(1000), 1000);
     assert!(res.contains(&(USERS[1], LtEvent::PlayerAdded(1).encode())));
 }
 
@@ -84,6 +91,8 @@ fn pick_winner() {
         LtAction::StartLottery {
             duration: 5000,
             token_address: None,
+            participation_cost: 1000,
+            prize_fund: 2000,
         },
     );
     assert!(res.log().is_empty());
@@ -91,7 +100,7 @@ fn pick_winner() {
     let res = lt.send_with_value(USERS[0], LtAction::Enter(1000), 1000);
     assert!(res.contains(&(USERS[0], LtEvent::PlayerAdded(0).encode())));
 
-    let res = lt.send_with_value(USERS[1], LtAction::Enter(2000), 2000);
+    let res = lt.send_with_value(USERS[1], LtAction::Enter(1000), 1000);
     assert!(res.contains(&(USERS[1], LtEvent::PlayerAdded(1).encode())));
 
     sys.spend_blocks(5000);
