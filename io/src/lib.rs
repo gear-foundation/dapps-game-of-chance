@@ -4,17 +4,7 @@ use codec::{Decode, Encode};
 use gstd::{prelude::*, ActorId};
 use scale_info::TypeInfo;
 
-#[derive(Debug, Default, Encode, Decode, TypeInfo, Clone)]
-pub struct LotteryState {
-    pub lottery_owner: ActorId,
-    pub lottery_started: bool,
-    pub lottery_start_time: u64,
-    pub lottery_duration: u64,
-    pub participation_cost: u128,
-    pub prize_fund: u128,
-}
-
-#[derive(Debug, Default, Encode, Decode, TypeInfo, Clone, Copy)]
+#[derive(Debug, Default, Encode, Decode, TypeInfo, Clone, Copy, PartialEq)]
 pub struct Player {
     pub player_id: ActorId,
     pub balance: u128,
@@ -31,13 +21,26 @@ pub enum LtAction {
     },
     LotteryState,
     PickWinner,
+    ResetLottery,
 }
 
 #[derive(Debug, Encode, Decode, TypeInfo)]
 pub enum LtEvent {
-    LotteryState(LotteryState),
+    LotteryState {
+        lottery_owner: ActorId,
+        lottery_started: bool,
+        lottery_start_time: u64,
+        lottery_duration: u64,
+        participation_cost: u128,
+        prize_fund: u128,
+        token_address: Option<ActorId>,
+        players: BTreeMap<u32, Player>,
+        lottery_history: BTreeMap<u32, ActorId>,
+        lottery_id: u32,
+    },
     Winner(u32),
     PlayerAdded(u32),
+    Reset,
 }
 
 #[derive(Debug, Encode, Decode, TypeInfo)]
@@ -48,10 +51,21 @@ pub enum LtState {
     LotteryState,
 }
 
-#[derive(Debug, Encode, Decode, TypeInfo)]
+#[derive(Debug, Encode, Decode, TypeInfo, PartialEq)]
 pub enum LtStateReply {
     Winners(BTreeMap<u32, ActorId>),
     Players(BTreeMap<u32, Player>),
     Balance(u128),
-    LotteryState(LotteryState),
+    LotteryState {
+        lottery_owner: ActorId,
+        lottery_started: bool,
+        lottery_start_time: u64,
+        lottery_duration: u64,
+        participation_cost: u128,
+        prize_fund: u128,
+        token_address: Option<ActorId>,
+        players: BTreeMap<u32, Player>,
+        lottery_history: BTreeMap<u32, ActorId>,
+        lottery_id: u32,
+    },
 }
