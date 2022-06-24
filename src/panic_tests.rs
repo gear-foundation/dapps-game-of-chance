@@ -37,7 +37,6 @@ fn start_lottery() {
         token_address: None,
         lottery_id: 1,
         players: BTreeMap::new(),
-        lottery_history: BTreeMap::new(),
     };
 
     let sys = System::new();
@@ -59,17 +58,6 @@ fn start_lottery() {
         USERS[1],
         LtAction::StartLottery {
             duration: 30000,
-            token_address: None,
-            participation_cost: 1000,
-            prize_fund: 2000,
-        },
-    );
-    assert!(res.main_failed());
-
-    let res = lt.send(
-        USERS[0],
-        LtAction::StartLottery {
-            duration: 40000,
             token_address: None,
             participation_cost: 1000,
             prize_fund: 2000,

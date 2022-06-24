@@ -4,7 +4,7 @@ use codec::{Decode, Encode};
 use gstd::{prelude::*, ActorId};
 use scale_info::TypeInfo;
 
-#[derive(Debug, Default, Encode, Decode, TypeInfo, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Encode, Decode, TypeInfo, Clone, PartialEq)]
 pub struct Player {
     pub player_id: ActorId,
     pub balance: u128,
@@ -21,7 +21,6 @@ pub enum LtAction {
     },
     LotteryState,
     PickWinner,
-    ResetLottery,
 }
 
 #[derive(Debug, Encode, Decode, TypeInfo)]
@@ -35,12 +34,10 @@ pub enum LtEvent {
         prize_fund: u128,
         token_address: Option<ActorId>,
         players: BTreeMap<u32, Player>,
-        lottery_history: BTreeMap<u32, ActorId>,
         lottery_id: u32,
     },
     Winner(u32),
     PlayerAdded(u32),
-    Reset,
 }
 
 #[derive(Debug, Encode, Decode, TypeInfo)]
@@ -65,7 +62,6 @@ pub enum LtStateReply {
         prize_fund: u128,
         token_address: Option<ActorId>,
         players: BTreeMap<u32, Player>,
-        lottery_history: BTreeMap<u32, ActorId>,
         lottery_id: u32,
     },
 }

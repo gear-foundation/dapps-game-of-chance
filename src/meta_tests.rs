@@ -5,7 +5,7 @@ use std::println;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use codec::Encode;
-use gstd::{ActorId, BTreeMap};
+use gstd::BTreeMap;
 use gtest::{Program, System};
 use lt_io::*;
 const USERS: &[u64] = &[3, 4, 5];
@@ -31,8 +31,7 @@ fn meta_tests() {
     init(&sys);
     let lt = sys.get_program(1);
 
-    let mut _players = BTreeMap::<u32, Player>::new();
-    let _lottery_history = BTreeMap::<u32, ActorId>::new();
+    let mut players = BTreeMap::<u32, Player>::new();
 
     let res = lt.send(
         USERS[0],
@@ -48,7 +47,7 @@ fn meta_tests() {
     let res = lt.send_with_value(USERS[0], LtAction::Enter(1000), 1000);
     assert!(res.contains(&(USERS[0], LtEvent::PlayerAdded(0).encode())));
 
-    _players.insert(
+    players.insert(
         0,
         Player {
             player_id: USERS[0].into(),
@@ -59,7 +58,7 @@ fn meta_tests() {
     let res = lt.send_with_value(USERS[1], LtAction::Enter(1000), 1000);
     assert!(res.contains(&(USERS[1], LtEvent::PlayerAdded(1).encode())));
 
-    _players.insert(
+    players.insert(
         1,
         Player {
             player_id: USERS[1].into(),
@@ -74,7 +73,7 @@ fn meta_tests() {
 
     assert_eq!(
         lt.meta_state::<_, LtStateReply>(LtState::GetPlayers),
-        LtStateReply::Players(_players.clone())
+        LtStateReply::Players(players.clone())
     );
 
     assert_eq!(
@@ -93,8 +92,7 @@ fn meta_tests() {
             prize_fund: 2000,
             token_address: None,
             lottery_id: 1,
-            players: _players,
-            lottery_history: _lottery_history,
+            players,
         }
     );
 

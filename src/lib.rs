@@ -55,23 +55,26 @@ impl Lottery {
         participation_cost: u128,
         prize_fund: u128,
     ) {
-        if msg::source() == self.lottery_owner && !self.lottery_is_on() {
-            self.lottery_started = true;
-            self.lottery_start_time = exec::block_timestamp();
-            self.lottery_duration = duration;
-            self.participation_cost = participation_cost;
-            self.prize_fund = prize_fund;
-            self.token_address = token_address;
-            self.lottery_id = self.lottery_id.saturating_add(1);
-        } else {
+        if msg::source() != self.lottery_owner {
             panic!(
-                "start_lottery(): Lottery on: {}  Owner message: {}  source(): {:?}  owner: {:?}",
-                self.lottery_is_on(),
+                "start_lottery(): Owner message: {}  source(): {:?}  owner: {:?}",
                 msg::source() == self.lottery_owner,
                 msg::source(),
                 self.lottery_owner
             );
         }
+
+        if self.lottery_is_on() {
+            self.init_lottery();
+        }
+
+        self.lottery_started = true;
+        self.lottery_start_time = exec::block_timestamp();
+        self.lottery_duration = duration;
+        self.participation_cost = participation_cost;
+        self.prize_fund = prize_fund;
+        self.token_address = token_address;
+        self.lottery_id = self.lottery_id.saturating_add(1);
     }
 
     // checks that the player is already participating in the lottery
@@ -174,7 +177,7 @@ impl Lottery {
 
         let index = (self.get_random_number() % (self.players.len() as u32)) as usize;
         let win_player_index = *self.players.keys().nth(index).expect("Player not found");
-        let player = self.players[&win_player_index];
+        let player = self.players[&win_player_index].clone();
 
         if let Some(ref token_address) = self.token_address {
             debug!("Transfer tokens to the winner");
@@ -198,8 +201,6 @@ impl Lottery {
             "Winner: {} token_address(): {:?}",
             index, self.token_address
         );
-
-        self.init_lottery();
     }
 
     //Sending the 'LotteryState' message
@@ -214,19 +215,11 @@ impl Lottery {
                 prize_fund: self.prize_fund,
                 token_address: self.token_address,
                 players: self.players.clone(),
-                lottery_history: self.lottery_history.clone(),
                 lottery_id: self.lottery_id,
             },
             0,
         )
         .expect("reply: 'LotteryState' error");
-    }
-
-    //Reset the lottery to the initial state
-    //Sending the 'Reset' message
-    fn reset(&mut self) {
-        self.init_lottery();
-        msg::reply(LtEvent::Reset, 0).expect("reply: 'Reset' error");
     }
 }
 
@@ -255,10 +248,6 @@ async fn main() {
 
         LtAction::PickWinner => {
             lottery.pick_winner().await;
-        }
-
-        LtAction::ResetLottery => {
-            lottery.reset();
         }
     }
 }
@@ -290,7 +279,6 @@ pub unsafe extern "C" fn meta_state() -> *mut [i32; 2] {
             prize_fund: lottery.prize_fund,
             token_address: lottery.token_address,
             players: lottery.players.clone(),
-            lottery_history: lottery.lottery_history.clone(),
             lottery_id: lottery.lottery_id,
         }
         .encode(),
