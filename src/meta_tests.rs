@@ -72,17 +72,20 @@ fn meta_tests() {
     );
 
     assert_eq!(
-        lt.meta_state::<_, LtStateReply>(LtState::GetPlayers),
+        lt.meta_state::<_, LtStateReply>(LtState::GetPlayers)
+            .expect("LtState::GetPlayers failed"),
         LtStateReply::Players(players.clone())
     );
 
     assert_eq!(
-        lt.meta_state::<_, LtStateReply>(LtState::BalanceOf(0)),
+        lt.meta_state::<_, LtStateReply>(LtState::BalanceOf(0))
+            .expect("LtState::BalanceOf failed"),
         LtStateReply::Balance(1000)
     );
 
     assert_eq!(
-        lt.meta_state::<_, LtStateReply>(LtState::LotteryState),
+        lt.meta_state::<_, LtStateReply>(LtState::LotteryState)
+            .expect("LtState::LotteryState failed"),
         LtStateReply::LotteryState {
             lottery_owner: USERS[0].into(),
             lottery_started: true,
