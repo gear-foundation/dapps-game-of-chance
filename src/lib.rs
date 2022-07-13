@@ -64,7 +64,7 @@ impl Lottery {
         }
 
         if self.lottery_is_on() {
-           self.players = BTreeMap::new();
+            self.players = BTreeMap::new();
         }
 
         self.lottery_started = true;
@@ -263,7 +263,10 @@ pub unsafe extern "C" fn meta_state() -> *mut [i32; 2] {
             let winner: ActorId = if lottery.lottery_started {
                 ActorId::zero()
             } else {
-                *lottery.lottery_history.get(&lottery.lottery_id).unwrap_or(&ActorId::zero())
+                *lottery
+                    .lottery_history
+                    .get(&lottery.lottery_id)
+                    .unwrap_or(&ActorId::zero())
             };
             LtStateReply::LotteryState {
                 lottery_owner: lottery.lottery_owner,

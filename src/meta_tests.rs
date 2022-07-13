@@ -5,7 +5,7 @@ use std::println;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use codec::Encode;
-use gstd::{BTreeMap, ActorId};
+use gstd::{ActorId, BTreeMap};
 use gtest::{Program, System};
 use lt_io::*;
 const USERS: &[u64] = &[3, 4, 5];
@@ -69,24 +69,21 @@ fn meta_tests() {
         },
     );
 
-    let expected_players: LtStateReply = lt.meta_state(LtState::GetPlayers).expect("Error in reading meta_state");
-    println!(
-        "meta players: {:?}",
-        expected_players,
-    );
+    let expected_players: LtStateReply = lt
+        .meta_state(LtState::GetPlayers)
+        .expect("Error in reading meta_state");
+    println!("meta players: {:?}", expected_players,);
 
-    assert_eq!(
-        expected_players,
-        LtStateReply::Players(players.clone())
-    );
+    assert_eq!(expected_players, LtStateReply::Players(players.clone()));
 
-    let balance: LtStateReply = lt.meta_state(LtState::BalanceOf(0)).expect("Error in reading meta_state");
-    assert_eq!(
-        balance,
-        LtStateReply::Balance(1000)
-    );
-    
-    let lottery_state: LtStateReply = lt.meta_state(LtState::LotteryState).expect("Error in reading meta_state");
+    let balance: LtStateReply = lt
+        .meta_state(LtState::BalanceOf(0))
+        .expect("Error in reading meta_state");
+    assert_eq!(balance, LtStateReply::Balance(1000));
+
+    let lottery_state: LtStateReply = lt
+        .meta_state(LtState::LotteryState)
+        .expect("Error in reading meta_state");
     assert_eq!(
         lottery_state,
         LtStateReply::LotteryState {
