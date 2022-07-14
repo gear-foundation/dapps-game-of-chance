@@ -38,6 +38,7 @@ impl Lottery {
     // checks that lottery has started and lottery time has not expired
     fn lottery_is_on(&mut self) -> bool {
         self.lottery_started
+            && (self.lottery_start_time + self.lottery_duration) > exec::block_timestamp()
     }
 
     /// Launches a lottery
