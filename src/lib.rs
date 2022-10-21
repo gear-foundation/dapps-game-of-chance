@@ -1,307 +1,229 @@
 #![no_std]
 
-#[cfg(test)]
-mod simple_tests;
+use ft_logic_io::Action;
+use ft_main_io::{FTokenAction, FTokenEvent};
+use gstd::{async_main, exec, msg, prelude::*, util, ActorId};
+use rand::{rngs::SmallRng, RngCore, SeedableRng};
 
-#[cfg(test)]
-mod panic_tests;
+mod io;
 
-#[cfg(test)]
-mod token_tests;
+pub use io::*;
 
-#[cfg(test)]
-mod meta_tests;
+static mut CONTRACT: Option<Lottery> = None;
 
-use codec::{Decode, Encode};
-use ft_io::*;
-use gstd::{debug, exec, msg, prelude::*, ActorId};
-use lt_io::*;
-use scale_info::TypeInfo;
-
-#[derive(Debug, Default, Encode, Decode, TypeInfo)]
+#[derive(Default)]
 struct Lottery {
-    lottery_owner: ActorId,
-    lottery_started: bool,
-    lottery_start_time: u64,
-    lottery_duration: u64,
-    participation_cost: u128,
-    prize_fund: u128,
-    token_address: Option<ActorId>,
-    players: BTreeMap<u32, Player>,
-    lottery_history: BTreeMap<u32, ActorId>,
-    lottery_id: u32,
-}
+    admin: ActorId,
+    ft_contract: ActorId,
 
-static mut LOTTERY: Option<Lottery> = None;
+    started: u64,
+    ending: u64,
+    players: BTreeSet<ActorId>,
+    prize_fund: u128,
+    participation_cost: u128,
+
+    last_winner: ActorId,
+
+    transactions: BTreeMap<ActorId, u64>,
+    transaction_id_nonce: u64,
+}
 
 impl Lottery {
-    // checks that lottery has started and lottery time has not expired
-    fn lottery_is_on(&mut self) -> bool {
-        self.lottery_started
-            && (self.lottery_start_time + self.lottery_duration) > exec::block_timestamp()
-    }
-
-    /// Launches a lottery
-    /// Requirements:
-    /// * Only owner can launch lottery
-    /// * Lottery must not have been launched earlier
-    /// Arguments:
-    /// * `duration`: lottery duration in milliseconds
-    /// * `token_address`: address of Fungible Token contract
-    fn start_lottery(
-        &mut self,
-        duration: u64,
-        token_address: Option<ActorId>,
-        participation_cost: u128,
-        prize_fund: u128,
-    ) {
-        if msg::source() != self.lottery_owner {
-            panic!(
-                "start_lottery(): Owner message: {}  source(): {:?}  owner: {:?}",
-                msg::source() == self.lottery_owner,
-                msg::source(),
-                self.lottery_owner
-            );
+    fn start(&mut self, duration: u64, participation_cost: u128) -> LotteryEvent {
+        if msg::source() != self.admin {
+            panic!("Lottery must be started by its admin");
         }
 
-        if self.lottery_is_on() {
-            self.players = BTreeMap::new();
+        if self.started != 0 {
+            panic!("Lottery mustn't be started");
         }
 
-        self.lottery_started = true;
-        self.lottery_start_time = exec::block_timestamp();
-        self.lottery_duration = duration;
+        self.players.clear();
+
+        self.prize_fund = 0;
+        self.started = exec::block_timestamp();
+        self.ending = self.started + duration;
         self.participation_cost = participation_cost;
-        self.prize_fund = prize_fund;
-        self.token_address = token_address;
-        self.lottery_id = self.lottery_id.saturating_add(1);
+
+        LotteryEvent::Started {
+            ending: self.ending,
+            participation_cost,
+        }
     }
 
-    // checks that the player is already participating in the lottery
-    fn player_exists(&mut self) -> bool {
-        self.players
-            .values()
-            .any(|player| player.player_id == msg::source())
-    }
+    async fn pick_winner(&mut self) -> LotteryEvent {
+        let block_timestamp = exec::block_timestamp();
 
-    /// Transfers `amount` tokens from `sender` account to `recipient` account.
-    /// Arguments:
-    /// * `from`: sender account
-    /// * `to`: recipient account
-    /// * `amount`: amount of tokens
-    async fn transfer_tokens(
-        token_address: &ActorId,
-        from: &ActorId,
-        to: &ActorId,
-        amount_tokens: u128,
-    ) {
-        msg::send_for_reply(
-            *token_address,
-            FTAction::Transfer {
-                from: *from,
-                to: *to,
-                amount: amount_tokens,
-            },
-            0,
-        )
-        .expect("Error in sending message")
-        .await
-        .expect("Error in transfer");
-    }
+        if msg::source() != self.admin {
+            panic!("Winner must be picked by a lottery's admin");
+        }
 
-    /// Called by a player in order to participate in lottery
-    /// Requirements:
-    /// * Lottery must be on
-    /// * Contribution must be greater than zero
-    /// * The player cannot enter the lottery more than once
-    /// Arguments:
-    /// * `amount`: value or tokens to participate in the lottery
-    async fn enter(&mut self, amount: u128) {
-        if self.lottery_is_on() && !self.player_exists() && amount == self.participation_cost {
-            if let Some(ref token_address) = self.token_address {
-                Self::transfer_tokens(token_address, &msg::source(), &exec::program_id(), amount)
-                    .await;
+        if self.ending > block_timestamp {
+            panic!("Winner can't be picked if a lottery is on");
+        }
 
-                debug!("Add in Fungible Token: {}", amount);
+        let winner = if self.players.is_empty() {
+            ActorId::zero()
+        } else {
+            let mut random_data = [0; (usize::BITS / 8) as usize];
+
+            SmallRng::seed_from_u64(block_timestamp).fill_bytes(&mut random_data);
+
+            let mystical_number = usize::from_le_bytes(random_data);
+
+            let winner = *self
+                .players
+                .iter()
+                .nth(mystical_number % self.players.len())
+                .expect("Failed to receive a winner");
+
+            let result = self
+                .transfer_tokens(self.admin, exec::program_id(), winner, self.prize_fund)
+                .await;
+
+            if let FTokenEvent::Err = result {
+                panic!("Failed to transfer tokens to a winner")
             }
 
-            let player = Player {
-                player_id: msg::source(),
-                balance: amount,
-            };
+            winner
+        };
 
-            let player_index = self.players.len() as u32;
-            self.players.insert(player_index, player);
-            msg::reply(LtEvent::PlayerAdded(player_index), 0).expect("reply: 'PlayerAdded' error");
-        } else {
-            panic!(
-                "enter(): Lottery on: {}  player exists: {} amount: {}",
-                self.lottery_is_on(),
-                self.player_exists(),
-                amount
-            );
-        }
+        self.started = 0;
+
+        LotteryEvent::Winner(winner)
     }
 
-    // Random number generation from block timestamp
-    fn get_random_number(&mut self) -> u32 {
-        let timestamp: u64 = exec::block_timestamp();
-        let code_hash = sp_core_hashing::blake2_256(&timestamp.to_le_bytes());
-        u32::from_le_bytes([code_hash[0], code_hash[1], code_hash[2], code_hash[3]])
-    }
+    async fn transfer_tokens(
+        &mut self,
+        msg_source: ActorId,
+        sender: ActorId,
+        recipient: ActorId,
+        amount: u128,
+    ) -> FTokenEvent {
+        let transaction_id = *self.transactions.entry(msg_source).or_insert_with(|| {
+            let id = self.transaction_id_nonce;
 
-    /// Lottery winner calculation
-    /// Requirements:
-    /// * Only owner can pick the winner
-    /// * Lottery has started and lottery time is expired
-    /// * List of players must not be empty
-    async fn pick_winner(&mut self) {
-        if msg::source() != self.lottery_owner {
-            panic!("pick_winner(): Only owner can pick the winner");
-        }
+            self.transaction_id_nonce = self.transaction_id_nonce.wrapping_add(1);
 
-        if self.players.is_empty() {
-            panic!("pick_winner(): players.is_empty()");
-        }
+            id
+        });
 
-        let index = (self.get_random_number() % (self.players.len() as u32)) as usize;
-        let win_player_index = *self.players.keys().nth(index).expect("Player not found");
-        let player = self.players[&win_player_index].clone();
-
-        if let Some(ref token_address) = self.token_address {
-            debug!("Transfer tokens to the winner");
-            Self::transfer_tokens(
-                token_address,
-                &exec::program_id(),
-                &player.player_id,
-                self.prize_fund,
-            )
-            .await;
-        } else {
-            msg::send_bytes(player.player_id, b"Winner", self.prize_fund)
-                .expect("pick_winner(): send_bytes() error!");
-        }
-
-        self.lottery_history
-            .insert(self.lottery_id, player.player_id);
-        msg::reply(LtEvent::Winner(win_player_index), 0).expect("reply: 'Winner' error");
-
-        debug!(
-            "Winner: {} token_address(): {:?}",
-            index, self.token_address
-        );
-        self.lottery_started = false;
-    }
-
-    //Sending the 'LotteryState' message
-    fn send_state(&mut self) {
-        msg::reply(
-            LtEvent::LotteryState {
-                lottery_owner: self.lottery_owner,
-                lottery_started: self.lottery_started,
-                lottery_start_time: self.lottery_start_time,
-                lottery_duration: self.lottery_duration,
-                participation_cost: self.participation_cost,
-                prize_fund: self.prize_fund,
-                token_address: self.token_address,
-                players: self.players.clone(),
-                lottery_id: self.lottery_id,
+        let result = msg::send_for_reply_as(
+            self.ft_contract,
+            FTokenAction::Message {
+                transaction_id,
+                payload: Action::Transfer {
+                    sender,
+                    recipient,
+                    amount,
+                }
+                .encode(),
             },
             0,
         )
-        .expect("reply: 'LotteryState' error");
+        .expect("Failed to send `FTokenAction`")
+        .await
+        .expect("Failed to decode `FTokenEvent`");
+
+        self.transactions.remove(&msg_source);
+
+        result
     }
-}
 
-#[gstd::async_main]
-async fn main() {
-    let lottery = unsafe { LOTTERY.get_or_insert(Default::default()) };
-    let action: LtAction = msg::load().expect("Could not load Action");
-
-    match action {
-        LtAction::Enter(amount) => {
-            lottery.enter(amount).await;
+    async fn enter(&mut self) -> LotteryEvent {
+        if self.ending <= exec::block_timestamp() {
+            panic!("Lottery must be on");
         }
 
-        LtAction::StartLottery {
-            duration,
-            token_address,
-            participation_cost,
-            prize_fund,
-        } => {
-            lottery.start_lottery(duration, token_address, participation_cost, prize_fund);
+        let msg_source = msg::source();
+
+        if self.players.contains(&msg_source) {
+            panic!("Every player can't enter a lottery more than once")
         }
 
-        LtAction::LotteryState => {
-            lottery.send_state();
+        let result = self
+            .transfer_tokens(
+                msg_source,
+                msg_source,
+                exec::program_id(),
+                self.participation_cost,
+            )
+            .await;
+
+        if let FTokenEvent::Err = result {
+            panic!("Failed to transfer tokens for a participation");
         }
 
-        LtAction::PickWinner => {
-            lottery.pick_winner().await;
-        }
+        self.players.insert(msg_source);
+        self.prize_fund += self.participation_cost;
+
+        LotteryEvent::PlayerAdded(msg_source)
     }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn init() {
-    let lottery = Lottery {
-        lottery_owner: msg::source(),
+extern "C" fn init() {
+    let LotteryInit { admin, ft_contract } = msg::load().expect("Failed to decode `LotteryInit`");
+
+    let contract = Lottery {
+        admin,
+        ft_contract,
         ..Default::default()
     };
 
-    LOTTERY = Some(lottery);
+    unsafe { CONTRACT = Some(contract) }
+}
+
+#[async_main]
+async fn main() {
+    let action: LotteryAction = msg::load().expect("Failed to decode `LotteryAction`");
+    let contract = contract();
+
+    let event = match action {
+        LotteryAction::Start {
+            duration,
+            participation_cost,
+        } => contract.start(duration, participation_cost),
+        LotteryAction::PickWinner => contract.pick_winner().await,
+        LotteryAction::Enter => contract.enter().await,
+    };
+
+    msg::reply(event, 0).expect("Failed to reply with `LotteryEvent`");
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn meta_state() -> *mut [i32; 2] {
-    let query: LtState = msg::load().expect("failed to decode input argument");
-    let lottery = LOTTERY.get_or_insert(Default::default());
+extern "C" fn meta_state() -> *mut [i32; 2] {
+    let query: LotteryStateQuery = msg::load().expect("Failed to decode `LotteryStateQuery`");
+    let contract = contract();
 
-    let encoded = match query {
-        LtState::GetPlayers => LtStateReply::Players(lottery.players.clone()).encode(),
-        LtState::GetWinners => LtStateReply::Winners(lottery.lottery_history.clone()).encode(),
-        LtState::LotteryState => {
-            let winner: ActorId = if lottery.lottery_started {
-                ActorId::zero()
-            } else {
-                *lottery
-                    .lottery_history
-                    .get(&lottery.lottery_id)
-                    .unwrap_or(&ActorId::zero())
-            };
-            LtStateReply::LotteryState {
-                lottery_owner: lottery.lottery_owner,
-                lottery_started: lottery.lottery_started,
-                lottery_start_time: lottery.lottery_start_time,
-                lottery_duration: lottery.lottery_duration,
-                participation_cost: lottery.participation_cost,
-                prize_fund: lottery.prize_fund,
-                token_address: lottery.token_address,
-                players: lottery.players.clone(),
-                lottery_id: lottery.lottery_id,
-                winner,
-            }
-            .encode()
-        }
+    let reply = match query {
+        LotteryStateQuery::State => {
+            let Lottery {
+                started,
+                ending,
+                players,
+                prize_fund,
+                participation_cost,
+                last_winner,
+                ..
+            } = contract;
 
-        LtState::BalanceOf(index) => {
-            if let Some(player) = lottery.players.get(&index) {
-                LtStateReply::Balance(player.balance).encode()
-            } else {
-                LtStateReply::Balance(0).encode()
+            LotteryStateReply::State {
+                started: *started,
+                ending: *ending,
+                players: players.clone(),
+                prize_fund: *prize_fund,
+                participation_cost: *participation_cost,
+                last_winner: *last_winner,
             }
         }
+
+        LotteryStateQuery::FTContract => LotteryStateReply::FTContract(contract.ft_contract),
     };
 
-    gstd::util::to_leak_ptr(encoded)
+    util::to_leak_ptr(reply.encode())
 }
 
-gstd::metadata! {
-    title: "Lottery",
-    handle:
-        input: LtAction,
-        output: LtEvent,
-    state:
-        input: LtState,
-        output: LtStateReply,
+fn contract() -> &'static mut Lottery {
+    unsafe { CONTRACT.get_or_insert(Lottery::default()) }
 }
