@@ -586,7 +586,7 @@ dependencies = [
 
 [[package]]
 name = "lottery"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ft-io",
  "gear-wasm-builder",
@@ -598,7 +598,7 @@ dependencies = [
 
 [[package]]
 name = "lt-io"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "gstd",
 ]
