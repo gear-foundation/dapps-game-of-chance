@@ -3,7 +3,8 @@
 use ft_logic_io::Action;
 use ft_main_io::{FTokenAction, FTokenEvent};
 use gstd::{async_main, exec, msg, prelude::*, util, ActorId};
-use rand::{rngs::SmallRng, RngCore, SeedableRng};
+use rand::{RngCore, SeedableRng};
+use rand_xoshiro::Xoshiro128PlusPlus;
 
 mod io;
 
@@ -11,14 +12,14 @@ pub use io::*;
 
 static mut CONTRACT: Option<Lottery> = None;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct Lottery {
     admin: ActorId,
-    ft_contract: ActorId,
 
+    ft_actor_id: Option<ActorId>,
     started: u64,
     ending: u64,
-    players: BTreeSet<ActorId>,
+    players: Vec<ActorId>,
     prize_fund: u128,
     participation_cost: u128,
 
@@ -29,13 +30,20 @@ struct Lottery {
 }
 
 impl Lottery {
-    fn start(&mut self, duration: u64, participation_cost: u128) -> LotteryEvent {
-        if msg::source() != self.admin {
-            panic!("Lottery must be started by its admin");
-        }
+    fn start(
+        &mut self,
+        duration: u64,
+        participation_cost: u128,
+        ft_actor_id: Option<ActorId>,
+    ) -> LotteryEvent {
+        self.assert_admin();
 
         if self.started != 0 {
-            panic!("Lottery mustn't be started");
+            panic!("Previous lottery round must be over");
+        }
+
+        if matches!(ft_actor_id, Some(ft_actor_id) if ft_actor_id.is_zero()) {
+            panic!("`ft_actor_id` mustn't be `ActorId::zero()`");
         }
 
         self.players.clear();
@@ -44,22 +52,32 @@ impl Lottery {
         self.started = exec::block_timestamp();
         self.ending = self.started + duration;
         self.participation_cost = participation_cost;
+        self.ft_actor_id = ft_actor_id;
 
         LotteryEvent::Started {
             ending: self.ending,
             participation_cost,
+            ft_actor_id,
+        }
+    }
+
+    fn assert_admin(&self) {
+        if msg::source() != self.admin {
+            panic!("`msg::source()` must be an administrator");
         }
     }
 
     async fn pick_winner(&mut self) -> LotteryEvent {
-        let block_timestamp = exec::block_timestamp();
+        self.assert_admin();
 
-        if msg::source() != self.admin {
-            panic!("Winner must be picked by a lottery's admin");
+        if self.started == 0 {
+            panic!("Winner mustn't already be picked");
         }
 
+        let block_timestamp = exec::block_timestamp();
+
         if self.ending > block_timestamp {
-            panic!("Winner can't be picked if a lottery is on");
+            panic!("Players entry stage must be over");
         }
 
         let winner = if self.players.is_empty() {
@@ -67,27 +85,35 @@ impl Lottery {
         } else {
             let mut random_data = [0; (usize::BITS / 8) as usize];
 
-            SmallRng::seed_from_u64(block_timestamp).fill_bytes(&mut random_data);
+            Xoshiro128PlusPlus::seed_from_u64(block_timestamp).fill_bytes(&mut random_data);
 
             let mystical_number = usize::from_le_bytes(random_data);
 
-            let winner = *self
-                .players
-                .iter()
-                .nth(mystical_number % self.players.len())
-                .expect("Failed to receive a winner");
+            let winner = self.players[mystical_number % self.players.len()];
 
-            let result = self
-                .transfer_tokens(self.admin, exec::program_id(), winner, self.prize_fund)
-                .await;
+            if let Some(ft_actor_id) = self.ft_actor_id {
+                let result = self
+                    .transfer_tokens(
+                        ft_actor_id,
+                        self.admin,
+                        exec::program_id(),
+                        winner,
+                        self.prize_fund,
+                    )
+                    .await;
 
-            if let FTokenEvent::Err = result {
-                panic!("Failed to transfer tokens to a winner")
+                if let FTokenEvent::Err = result {
+                    panic!("Failed to transfer tokens to a winner")
+                }
+            } else {
+                msg::send_bytes(winner, [], self.prize_fund)
+                    .expect("Failed to send the native value to a winner");
             }
 
             winner
         };
 
+        self.last_winner = winner;
         self.started = 0;
 
         LotteryEvent::Winner(winner)
@@ -95,6 +121,7 @@ impl Lottery {
 
     async fn transfer_tokens(
         &mut self,
+        ft_actor_id: ActorId,
         msg_source: ActorId,
         sender: ActorId,
         recipient: ActorId,
@@ -109,7 +136,7 @@ impl Lottery {
         });
 
         let result = msg::send_for_reply_as(
-            self.ft_contract,
+            ft_actor_id,
             FTokenAction::Message {
                 transaction_id,
                 payload: Action::Transfer {
@@ -132,30 +159,35 @@ impl Lottery {
 
     async fn enter(&mut self) -> LotteryEvent {
         if self.ending <= exec::block_timestamp() {
-            panic!("Lottery must be on");
+            panic!("Players entry stage mustn't be over");
         }
 
         let msg_source = msg::source();
 
         if self.players.contains(&msg_source) {
-            panic!("Every player can't enter a lottery more than once")
+            panic!("`msg::source()` mustn't already participate")
         }
 
-        let result = self
-            .transfer_tokens(
-                msg_source,
-                msg_source,
-                exec::program_id(),
-                self.participation_cost,
-            )
-            .await;
+        if let Some(ft_actor_id) = self.ft_actor_id {
+            let result = self
+                .transfer_tokens(
+                    ft_actor_id,
+                    msg_source,
+                    msg_source,
+                    exec::program_id(),
+                    self.participation_cost,
+                )
+                .await;
 
-        if let FTokenEvent::Err = result {
-            panic!("Failed to transfer tokens for a participation");
+            if let FTokenEvent::Err = result {
+                panic!("Failed to transfer tokens for a participation");
+            }
+        } else if msg::value() != self.participation_cost {
+            panic!("`msg::source()` must send the amount of the native value exactly equal to a participation cost");
         }
 
-        self.players.insert(msg_source);
-        self.prize_fund += self.participation_cost;
+        self.players.push(msg_source);
+        self.prize_fund = self.prize_fund.saturating_add(self.participation_cost);
 
         LotteryEvent::PlayerAdded(msg_source)
     }
@@ -163,14 +195,16 @@ impl Lottery {
 
 #[no_mangle]
 extern "C" fn init() {
-    let LotteryInit { admin, ft_contract } = msg::load().expect("Failed to decode `LotteryInit`");
+    let LotteryInit { admin } = msg::load().expect("Failed to decode `LotteryInit`");
+
+    if admin.is_zero() {
+        panic!("`admin` mustn't be `ActorId::zero()`");
+    }
 
     let contract = Lottery {
         admin,
-        ft_contract,
         ..Default::default()
     };
-
     unsafe { CONTRACT = Some(contract) }
 }
 
@@ -183,7 +217,8 @@ async fn main() {
         LotteryAction::Start {
             duration,
             participation_cost,
-        } => contract.start(duration, participation_cost),
+            ft_actor_id,
+        } => contract.start(duration, participation_cost, ft_actor_id),
         LotteryAction::PickWinner => contract.pick_winner().await,
         LotteryAction::Enter => contract.enter().await,
     };
@@ -205,25 +240,25 @@ extern "C" fn meta_state() -> *mut [i32; 2] {
                 prize_fund,
                 participation_cost,
                 last_winner,
+                ft_actor_id,
                 ..
             } = contract;
 
             LotteryStateReply::State {
                 started: *started,
                 ending: *ending,
-                players: players.clone(),
+                players: BTreeSet::from_iter(players.clone()),
                 prize_fund: *prize_fund,
                 participation_cost: *participation_cost,
                 last_winner: *last_winner,
+                ft_actor_id: *ft_actor_id,
             }
         }
-
-        LotteryStateQuery::FTContract => LotteryStateReply::FTContract(contract.ft_contract),
     };
 
     util::to_leak_ptr(reply.encode())
 }
 
 fn contract() -> &'static mut Lottery {
-    unsafe { CONTRACT.get_or_insert(Lottery::default()) }
+    unsafe { CONTRACT.get_or_insert(Default::default()) }
 }
