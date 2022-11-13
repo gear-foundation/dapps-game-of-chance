@@ -2,7 +2,7 @@
 
 use ft_logic_io::Action;
 use ft_main_io::{FTokenAction, FTokenEvent};
-use gstd::{async_main, exec, msg, prelude::*, util, ActorId};
+use gstd::{async_main, exec, metadata, msg, prelude::*, util, ActorId};
 use rand::{RngCore, SeedableRng};
 use rand_xoshiro::Xoshiro128PlusPlus;
 
@@ -261,4 +261,14 @@ extern "C" fn meta_state() -> *mut [i32; 2] {
 
 fn contract() -> &'static mut Goc {
     unsafe { CONTRACT.get_or_insert(Default::default()) }
+}
+
+metadata! {
+    title: "Game of chance",
+    handle:
+        input: GOCAction,
+        output: GOCEvent,
+    state:
+        input: GOCStateQuery,
+        output: GOCStateReply,
 }
