@@ -245,17 +245,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ft-storage-io"
-version = "0.1.1"
-source = "git+https://github.com/gear-dapps/sharded-fungible-token.git?tag=0.1.1#31e157adc27c7900bac4dad132033077b0cc73f6"
-dependencies = [
- "gstd",
- "parity-scale-codec",
- "primitive-types",
- "scale-info",
-]
-
-[[package]]
 name = "funty"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -328,6 +317,21 @@ version = "0.1.0"
 source = "git+https://github.com/gear-tech/gear.git?rev=d4552434#d4552434b470dad1ade7db3a929eb1aa6204c9ca"
 dependencies = [
  "dlmalloc",
+]
+
+[[package]]
+name = "game-of-chance"
+version = "0.2.0"
+dependencies = [
+ "ft-logic-io",
+ "ft-main-io",
+ "gear-wasm-builder",
+ "gstd",
+ "gtest",
+ "parity-scale-codec",
+ "rand",
+ "rand_xoshiro",
+ "scale-info",
 ]
 
 [[package]]
@@ -571,22 +575,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "abb12e687cfb44aa40f41fc3978ef76448f9b6038cad6aef4259d3c095a2382e"
 dependencies = [
  "cfg-if",
-]
-
-[[package]]
-name = "lottery"
-version = "0.2.0"
-dependencies = [
- "ft-logic-io",
- "ft-main-io",
- "ft-storage-io",
- "gear-wasm-builder",
- "gstd",
- "gtest",
- "parity-scale-codec",
- "rand",
- "rand_xoshiro",
- "scale-info",
 ]
 
 [[package]]

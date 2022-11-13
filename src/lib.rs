@@ -10,10 +10,10 @@ mod io;
 
 pub use io::*;
 
-static mut CONTRACT: Option<Lottery> = None;
+static mut CONTRACT: Option<Goc> = None;
 
 #[derive(Default, Debug)]
-struct Lottery {
+struct Goc {
     admin: ActorId,
 
     ft_actor_id: Option<ActorId>,
@@ -29,17 +29,17 @@ struct Lottery {
     transaction_id_nonce: u64,
 }
 
-impl Lottery {
+impl Goc {
     fn start(
         &mut self,
         duration: u64,
         participation_cost: u128,
         ft_actor_id: Option<ActorId>,
-    ) -> LotteryEvent {
+    ) -> GOCEvent {
         self.assert_admin();
 
         if self.started != 0 {
-            panic!("Previous lottery round must be over");
+            panic!("Current game round must be over");
         }
 
         if matches!(ft_actor_id, Some(ft_actor_id) if ft_actor_id.is_zero()) {
@@ -54,7 +54,7 @@ impl Lottery {
         self.participation_cost = participation_cost;
         self.ft_actor_id = ft_actor_id;
 
-        LotteryEvent::Started {
+        GOCEvent::Started {
             ending: self.ending,
             participation_cost,
             ft_actor_id,
@@ -63,11 +63,11 @@ impl Lottery {
 
     fn assert_admin(&self) {
         if msg::source() != self.admin {
-            panic!("`msg::source()` must be an administrator");
+            panic!("`msg::source()` must be the game administrator");
         }
     }
 
-    async fn pick_winner(&mut self) -> LotteryEvent {
+    async fn pick_winner(&mut self) -> GOCEvent {
         self.assert_admin();
 
         if self.started == 0 {
@@ -103,7 +103,7 @@ impl Lottery {
                     .await;
 
                 if let FTokenEvent::Err = result {
-                    panic!("Failed to transfer tokens to a winner")
+                    panic!("Failed to transfer fungible tokens to a winner")
                 }
             } else {
                 msg::send_bytes(winner, [], self.prize_fund)
@@ -116,7 +116,7 @@ impl Lottery {
         self.last_winner = winner;
         self.started = 0;
 
-        LotteryEvent::Winner(winner)
+        GOCEvent::Winner(winner)
     }
 
     async fn transfer_tokens(
@@ -157,7 +157,7 @@ impl Lottery {
         result
     }
 
-    async fn enter(&mut self) -> LotteryEvent {
+    async fn enter(&mut self) -> GOCEvent {
         if self.ending <= exec::block_timestamp() {
             panic!("Players entry stage mustn't be over");
         }
@@ -180,7 +180,7 @@ impl Lottery {
                 .await;
 
             if let FTokenEvent::Err = result {
-                panic!("Failed to transfer tokens for a participation");
+                panic!("Failed to transfer fungible tokens for a participation");
             }
         } else if msg::value() != self.participation_cost {
             panic!("`msg::source()` must send the amount of the native value exactly equal to a participation cost");
@@ -189,19 +189,19 @@ impl Lottery {
         self.players.push(msg_source);
         self.prize_fund = self.prize_fund.saturating_add(self.participation_cost);
 
-        LotteryEvent::PlayerAdded(msg_source)
+        GOCEvent::PlayerAdded(msg_source)
     }
 }
 
 #[no_mangle]
 extern "C" fn init() {
-    let LotteryInit { admin } = msg::load().expect("Failed to decode `LotteryInit`");
+    let GOCInit { admin } = msg::load().expect("Failed to decode `GOCInit`");
 
     if admin.is_zero() {
         panic!("`admin` mustn't be `ActorId::zero()`");
     }
 
-    let contract = Lottery {
+    let contract = Goc {
         admin,
         ..Default::default()
     };
@@ -210,30 +210,30 @@ extern "C" fn init() {
 
 #[async_main]
 async fn main() {
-    let action: LotteryAction = msg::load().expect("Failed to decode `LotteryAction`");
+    let action: GOCAction = msg::load().expect("Failed to decode `GOCAction`");
     let contract = contract();
 
     let event = match action {
-        LotteryAction::Start {
+        GOCAction::Start {
             duration,
             participation_cost,
             ft_actor_id,
         } => contract.start(duration, participation_cost, ft_actor_id),
-        LotteryAction::PickWinner => contract.pick_winner().await,
-        LotteryAction::Enter => contract.enter().await,
+        GOCAction::PickWinner => contract.pick_winner().await,
+        GOCAction::Enter => contract.enter().await,
     };
 
-    msg::reply(event, 0).expect("Failed to reply with `LotteryEvent`");
+    msg::reply(event, 0).expect("Failed to reply with `GOCEvent`");
 }
 
 #[no_mangle]
 extern "C" fn meta_state() -> *mut [i32; 2] {
-    let query: LotteryStateQuery = msg::load().expect("Failed to decode `LotteryStateQuery`");
+    let query: GOCStateQuery = msg::load().expect("Failed to decode `GOCStateQuery`");
     let contract = contract();
 
     let reply = match query {
-        LotteryStateQuery::State => {
-            let Lottery {
+        GOCStateQuery::State => {
+            let Goc {
                 started,
                 ending,
                 players,
@@ -244,7 +244,7 @@ extern "C" fn meta_state() -> *mut [i32; 2] {
                 ..
             } = contract;
 
-            LotteryStateReply::State {
+            GOCStateReply::State {
                 started: *started,
                 ending: *ending,
                 players: BTreeSet::from_iter(players.clone()),
@@ -259,6 +259,6 @@ extern "C" fn meta_state() -> *mut [i32; 2] {
     util::to_leak_ptr(reply.encode())
 }
 
-fn contract() -> &'static mut Lottery {
+fn contract() -> &'static mut Goc {
     unsafe { CONTRACT.get_or_insert(Default::default()) }
 }

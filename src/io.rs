@@ -1,39 +1,39 @@
 use gstd::{prelude::*, ActorId};
 
-/// Initializes the lottery contract.
+/// Initializes the Game of chance contract.
 ///
 /// # Requirements
 /// - `admin` mustn't be [`ActorId::zero()`].
 #[derive(Debug, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, TypeInfo)]
-pub struct LotteryInit {
-    /// [`ActorId`] of an administrator that'll have the rights to
-    /// [start a lottery](LotteryAction::Start) and
-    /// [pick a winner](LotteryAction::PickWinner).
+pub struct GOCInit {
+    /// [`ActorId`] of the game administrator that'll have the rights to
+    /// [start a game round](GOCAction::Start) and
+    /// [pick a winner](GOCAction::PickWinner).
     pub admin: ActorId,
 }
 
 /// Sends a contract info about what it should do.
 #[derive(Debug, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, TypeInfo)]
-pub enum LotteryAction {
-    /// Starts a lottery round and allows to participate in it.
+pub enum GOCAction {
+    /// Starts a game round and allows to participate in it.
     ///
     /// # Requirements
-    /// - [`msg::source()`] must be an administrator.
-    /// - The previous lottery round must be over.
+    /// - [`msg::source()`] must be the game administrator.
+    /// - The current game round must be over.
     /// - `ft_actor_id` mustn't be [`ActorId::zero()`].
     ///
-    /// On success, returns [`LotteryEvent::Started`].
+    /// On success, returns [`GOCEvent::Started`].
     ///
     /// [`msg::source()`]: gstd::msg::source
     Start {
         /// The duration (in milliseconds) of the players entry stage.
         ///
-        /// After that, no one will be able to enter a lottery and a winner
+        /// After that, no one will be able to enter a game round and a winner
         /// should be picked.
         duration: u64,
-        /// The price of participation in a new lottery round.
+        /// The price of participation in a game round.
         participation_cost: u128,
-        /// A currency (or a FT contract [`ActorId`]) of a new lottery round.
+        /// A currency (or FT contract [`ActorId`]) of a game round.
         ///
         /// Determines fungible tokens in which a prize fund and a participation
         /// cost will be collected. [`None`] means that the native value will be
@@ -41,8 +41,8 @@ pub enum LotteryAction {
         ft_actor_id: Option<ActorId>,
     },
 
-    /// Randomly picks a winner from current lottery round participants
-    /// (players) and sends a prize fund to it.
+    /// Randomly picks a winner from current game round participants (players)
+    /// and sends a prize fund to it.
     ///
     /// The randomness of a winner pick depends on [`exec::block_timestamp()`].
     /// Not the best source of entropy, but, in theory, it's impossible to
@@ -53,93 +53,92 @@ pub enum LotteryAction {
     /// [`ActorId::zero()`].
     ///
     /// # Requirements
-    /// - [`msg::source()`] must be an administrator.
+    /// - [`msg::source()`] must be the game administrator.
     /// - The players entry stage must be over.
     /// - A winner mustn't already be picked.
     ///
-    /// On success, returns [`LotteryEvent::Winner`].
+    /// On success, returns [`GOCEvent::Winner`].
     ///
     /// [`exec::block_timestamp()`]: gstd::exec::block_timestamp
     /// [`msg::source()`]: gstd::msg::source
     PickWinner,
 
     /// Pays a participation cost on behalf of [`msg::source()`] and adds it to
-    /// lottery participants (players).
+    /// the current game round participants (players).
     ///
     /// A participation cost and its currency can be queried by
-    /// [`LotteryStateQuery::State`].
+    /// [`GOCStateQuery::State`].
     ///
     /// # Requirements
     /// - The players entry stage mustn't be over.
     /// - [`msg::source()`] mustn't already participate.
     /// - [`msg::source()`] must have enough currency to pay a participation
     /// cost.
-    /// - If the current lottery round currency is the native value
-    /// (`ft_actor_id` is [`None`]), [`msg::source()`] must send this action
-    /// with the amount of the value exactly equal to a participation cost.
+    /// - If the current game round currency is the native value (`ft_actor_id`
+    /// is [`None`]), [`msg::source()`] must send this action with the amount of
+    /// the value exactly equal to a participation cost.
     ///
-    /// On success, returns [`LotteryEvent::PlayerAdded`].
+    /// On success, returns [`GOCEvent::PlayerAdded`].
     ///
     /// [`msg::source()`]: gstd::msg::source
     Enter,
 }
 
-/// A result of processed [`LotteryAction`].
+/// A result of processed [`GOCAction`].
 #[derive(Debug, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, TypeInfo)]
-pub enum LotteryEvent {
-    /// Should be returned from [`LotteryAction::Start`].
+pub enum GOCEvent {
+    /// Should be returned from [`GOCAction::Start`].
     Started {
         /// The end time (in milliseconds) of the players entry stage.
         ///
-        /// After that, a lottery administrator can pick a winner.
+        /// After that, the game administrator can pick a winner.
         ending: u64,
-        /// See the documentation of [`LotteryAction::Start`].
+        /// See the documentation of [`GOCAction::Start`].
         participation_cost: u128,
-        /// See the documentation of [`LotteryAction::Start`].
+        /// See the documentation of [`GOCAction::Start`].
         ft_actor_id: Option<ActorId>,
     },
-    /// Should be returned from [`LotteryAction::PickWinner`].
+    /// Should be returned from [`GOCAction::PickWinner`].
     Winner(ActorId),
-    /// Should be returned from [`LotteryAction::Enter`].
+    /// Should be returned from [`GOCAction::Enter`].
     PlayerAdded(ActorId),
 }
 
 /// Queries a contract state.
 #[derive(Debug, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, TypeInfo)]
-pub enum LotteryStateQuery {
-    /// Queries a lottery state.
+pub enum GOCStateQuery {
+    /// Queries the current game round state.
     ///
-    /// Returns [`LotteryStateReply::State`].
+    /// Returns [`GOCStateReply::State`].
     State,
 }
 
-/// A reply to queried [`LotteryStateQuery`].
+/// A reply to queried [`GOCStateQuery`].
 #[derive(Debug, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Clone, TypeInfo)]
-pub enum LotteryStateReply {
-    /// Should be returned from [`LotteryStateQuery::State`].
+pub enum GOCStateReply {
+    /// Should be returned from [`GOCStateQuery::State`].
     State {
-        /// The start time (in milliseconds) of the current lottery round and
-        /// the players entry stage.
+        /// The start time (in milliseconds) of the current game round and the
+        /// players entry stage.
         ///
-        /// If it equals 0, a winner has picked and the current round is over.
+        /// If it equals 0, a winner has picked and the round is over.
         started: u64,
-        /// See the documentation of [`LotteryEvent::Started`].
+        /// See the documentation of [`GOCEvent::Started`].
         ending: u64,
-        /// Participants of the current lottery round.
+        /// Participants of the current game round.
         players: BTreeSet<ActorId>,
-        /// The current lottery round prize fund.
+        /// The current game round prize fund.
         ///
-        /// It's calculated by multiplying `participation_cost` and a number of
-        /// `players`.
+        /// It's calculated by multiplying `participation_cost` and the number
+        /// of `players`.
         prize_fund: u128,
-        /// See the documentation of [`LotteryAction::Start`].
+        /// See the documentation of [`GOCAction::Start`].
         participation_cost: u128,
-        /// The winner of the last lottery round.
+        /// The winner of the previous game round.
         last_winner: ActorId,
-        /// A currency (or a FT contract [`ActorId`]) of the current lottery
-        /// round.
+        /// A currency (or a FT contract [`ActorId`]) of the current game round.
         ///
-        /// See the documentation of [`LotteryAction::Start`].
+        /// See the documentation of [`GOCAction::Start`].
         ft_actor_id: Option<ActorId>,
     },
 }

@@ -4,7 +4,7 @@ use gtest::{Program as InnerProgram, System};
 use rand::{RngCore, SeedableRng};
 use rand_xoshiro::Xoshiro128PlusPlus;
 
-use lottery::*;
+use game_of_chance::*;
 
 mod sft;
 
@@ -16,31 +16,31 @@ pub use sft::Sft;
 
 pub const FOREIGN_USER: u64 = 9999999;
 
-type LotteryRunResult<T> = RunResult<T, LotteryEvent>;
-type LotteryInitResult<'a> = InitResult<Lottery<'a>>;
+type GOCRunResult<T> = RunResult<T, GOCEvent>;
+type GOCInitResult<'a> = InitResult<Goc<'a>>;
 
-pub struct Lottery<'a>(InnerProgram<'a>);
+pub struct Goc<'a>(InnerProgram<'a>);
 
-impl Program for Lottery<'_> {
+impl Program for Goc<'_> {
     fn inner_program(&self) -> &InnerProgram {
         &self.0
     }
 }
 
-impl<'a> From<InnerProgram<'a>> for Lottery<'a> {
+impl<'a> From<InnerProgram<'a>> for Goc<'a> {
     fn from(program: InnerProgram<'a>) -> Self {
         Self(program)
     }
 }
 
-impl<'a> Lottery<'a> {
-    pub fn initialize(system: &'a System, admin: impl Into<ActorId>) -> LotteryInitResult {
+impl<'a> Goc<'a> {
+    pub fn initialize(system: &'a System, admin: impl Into<ActorId>) -> GOCInitResult {
         let program = InnerProgram::current(system);
 
         let failed = program
             .send(
                 FOREIGN_USER,
-                LotteryInit {
+                GOCInit {
                     admin: admin.into(),
                 },
             )
@@ -49,8 +49,8 @@ impl<'a> Lottery<'a> {
         InitResult(Self(program), failed)
     }
 
-    pub fn meta_state(&self) -> LotteryMetaState {
-        LotteryMetaState(&self.0)
+    pub fn meta_state(&self) -> GOCMetaState {
+        GOCMetaState(&self.0)
     }
 
     pub fn start(
@@ -59,17 +59,17 @@ impl<'a> Lottery<'a> {
         duration: u64,
         participation_cost: u128,
         ft_address: Option<ActorId>,
-    ) -> LotteryRunResult<(u64, u128, Option<ActorId>)> {
+    ) -> GOCRunResult<(u64, u128, Option<ActorId>)> {
         RunResult(
             self.0.send(
                 from,
-                LotteryAction::Start {
+                GOCAction::Start {
                     duration,
                     participation_cost,
                     ft_actor_id: ft_address,
                 },
             ),
-            |(ending, participation_cost, ft_address)| LotteryEvent::Started {
+            |(ending, participation_cost, ft_address)| GOCEvent::Started {
                 ending,
                 participation_cost,
                 ft_actor_id: ft_address,
@@ -77,33 +77,30 @@ impl<'a> Lottery<'a> {
         )
     }
 
-    pub fn enter(&mut self, from: u64) -> LotteryRunResult<u64> {
+    pub fn enter(&mut self, from: u64) -> GOCRunResult<u64> {
         self.enter_with_value(from, 0)
     }
 
-    pub fn enter_with_value(&mut self, from: u64, value: u128) -> LotteryRunResult<u64> {
+    pub fn enter_with_value(&mut self, from: u64, value: u128) -> GOCRunResult<u64> {
         RunResult(
-            self.0.send_with_value(from, LotteryAction::Enter, value),
-            |actor_id| LotteryEvent::PlayerAdded(actor_id.into()),
+            self.0.send_with_value(from, GOCAction::Enter, value),
+            |actor_id| GOCEvent::PlayerAdded(actor_id.into()),
         )
     }
 
-    pub fn pick_winner(&mut self, from: u64) -> LotteryRunResult<ActorId> {
-        RunResult(
-            self.0.send(from, LotteryAction::PickWinner),
-            LotteryEvent::Winner,
-        )
+    pub fn pick_winner(&mut self, from: u64) -> GOCRunResult<ActorId> {
+        RunResult(self.0.send(from, GOCAction::PickWinner), GOCEvent::Winner)
     }
 }
 
-pub struct LotteryMetaState<'a>(&'a InnerProgram<'a>);
+pub struct GOCMetaState<'a>(&'a InnerProgram<'a>);
 
-impl LotteryMetaState<'_> {
-    pub fn state(self) -> MetaStateReply<LotteryStateReply> {
+impl GOCMetaState<'_> {
+    pub fn state(self) -> MetaStateReply<GOCStateReply> {
         MetaStateReply(
             self.0
-                .meta_state(LotteryStateQuery::State)
-                .expect("Failed to decode `LotteryStateReply`"),
+                .meta_state(GOCStateQuery::State)
+                .expect("Failed to decode `GOCStateReply`"),
         )
     }
 }
