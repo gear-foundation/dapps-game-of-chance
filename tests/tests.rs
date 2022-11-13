@@ -16,7 +16,7 @@ fn two_rounds_and_meta_state() {
     let mut sft = Sft::initialize(&system);
     let mut goc = Goc::initialize(&system, ADMIN).succeed();
 
-    goc.meta_state().state().eq(GOCStateReply::State {
+    goc.meta_state().state().eq(GOCState {
         started: 0,
         ending: 0,
         players: BTreeSet::new(),
@@ -43,7 +43,7 @@ fn two_rounds_and_meta_state() {
 
     goc.start(ADMIN, DURATION, PARTICIPATION_COST, ft_actor_id)
         .contains((ending, PARTICIPATION_COST, ft_actor_id));
-    goc.meta_state().state().eq(GOCStateReply::State {
+    goc.meta_state().state().eq(GOCState {
         started,
         ending,
         players: BTreeSet::new(),
@@ -55,7 +55,7 @@ fn two_rounds_and_meta_state() {
 
     goc.enter(PLAYERS[0]).contains(PLAYERS[0]);
     sft.balance(goc.actor_id()).contains(PARTICIPATION_COST);
-    goc.meta_state().state().eq(GOCStateReply::State {
+    goc.meta_state().state().eq(GOCState {
         started,
         ending,
         players: BTreeSet::from([PLAYERS[0].into()]),
@@ -67,7 +67,7 @@ fn two_rounds_and_meta_state() {
 
     goc.enter(PLAYERS[1]).contains(PLAYERS[1]);
     sft.balance(goc.actor_id()).contains(PARTICIPATION_COST * 2);
-    goc.meta_state().state().eq(GOCStateReply::State {
+    goc.meta_state().state().eq(GOCState {
         started,
         ending,
         players: BTreeSet::from([PLAYERS[0].into(), PLAYERS[1].into()]),
@@ -79,7 +79,7 @@ fn two_rounds_and_meta_state() {
 
     goc.enter(PLAYERS[2]).contains(PLAYERS[2]);
     sft.balance(goc.actor_id()).contains(PARTICIPATION_COST * 3);
-    goc.meta_state().state().eq(GOCStateReply::State {
+    goc.meta_state().state().eq(GOCState {
         started,
         ending,
         players: BTreeSet::from([PLAYERS[0].into(), PLAYERS[1].into(), PLAYERS[2].into()]),
@@ -97,7 +97,7 @@ fn two_rounds_and_meta_state() {
     started = 0;
     sft.balance(winner)
         .contains(PARTICIPATION_COST * 2 + AMOUNT);
-    goc.meta_state().state().eq(GOCStateReply::State {
+    goc.meta_state().state().eq(GOCState {
         started,
         ending,
         players: BTreeSet::from([PLAYERS[0].into(), PLAYERS[1].into(), PLAYERS[2].into()]),
@@ -117,7 +117,7 @@ fn two_rounds_and_meta_state() {
 
     goc.start(ADMIN, DURATION, PARTICIPATION_COST, ft_actor_id)
         .contains((ending, PARTICIPATION_COST, ft_actor_id));
-    goc.meta_state().state().eq(GOCStateReply::State {
+    goc.meta_state().state().eq(GOCState {
         started,
         ending,
         players: BTreeSet::new(),
@@ -133,7 +133,7 @@ fn two_rounds_and_meta_state() {
         system.balance_of(goc.actor_id().as_ref()),
         PARTICIPATION_COST
     );
-    goc.meta_state().state().eq(GOCStateReply::State {
+    goc.meta_state().state().eq(GOCState {
         started,
         ending,
         players: BTreeSet::from([PLAYERS[0].into()]),
@@ -149,7 +149,7 @@ fn two_rounds_and_meta_state() {
         system.balance_of(goc.actor_id().as_ref()),
         PARTICIPATION_COST * 2
     );
-    goc.meta_state().state().eq(GOCStateReply::State {
+    goc.meta_state().state().eq(GOCState {
         started,
         ending,
         players: BTreeSet::from([PLAYERS[0].into(), PLAYERS[1].into()]),
@@ -165,7 +165,7 @@ fn two_rounds_and_meta_state() {
         system.balance_of(goc.actor_id().as_ref()),
         PARTICIPATION_COST * 3
     );
-    goc.meta_state().state().eq(GOCStateReply::State {
+    goc.meta_state().state().eq(GOCState {
         started,
         ending,
         players: BTreeSet::from([PLAYERS[0].into(), PLAYERS[1].into(), PLAYERS[2].into()]),
@@ -182,7 +182,7 @@ fn two_rounds_and_meta_state() {
     goc.pick_winner(ADMIN).contains(winner.into());
     system.claim_value_from_mailbox(winner);
     assert_eq!(system.balance_of(winner), PARTICIPATION_COST * 2 + AMOUNT);
-    goc.meta_state().state().eq(GOCStateReply::State {
+    goc.meta_state().state().eq(GOCState {
         started: 0,
         ending,
         players: BTreeSet::from([PLAYERS[0].into(), PLAYERS[1].into(), PLAYERS[2].into()]),
@@ -293,7 +293,7 @@ fn prize_fund_overflow() {
     goc.enter(PLAYERS[0]).contains(PLAYERS[0]);
     goc.enter(PLAYERS[1]).contains(PLAYERS[1]);
 
-    goc.meta_state().state().eq(GOCStateReply::State {
+    goc.meta_state().state().eq(GOCState {
         started,
         ending,
         players: BTreeSet::from([PLAYERS[0].into(), PLAYERS[1].into()]),

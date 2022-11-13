@@ -96,10 +96,10 @@ impl<'a> Goc<'a> {
 pub struct GOCMetaState<'a>(&'a InnerProgram<'a>);
 
 impl GOCMetaState<'_> {
-    pub fn state(self) -> MetaStateReply<GOCStateReply> {
+    pub fn state(self) -> MetaStateReply<GOCState> {
         MetaStateReply(
             self.0
-                .meta_state(GOCStateQuery::State)
+                .meta_state_empty()
                 .expect("Failed to decode `GOCStateReply`"),
         )
     }

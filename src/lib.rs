@@ -228,32 +228,25 @@ async fn main() {
 
 #[no_mangle]
 extern "C" fn meta_state() -> *mut [i32; 2] {
-    let query: GOCStateQuery = msg::load().expect("Failed to decode `GOCStateQuery`");
-    let contract = contract();
+    let Goc {
+        ft_actor_id,
+        started,
+        ending,
+        players,
+        prize_fund,
+        participation_cost,
+        last_winner,
+        ..
+    } = contract();
 
-    let reply = match query {
-        GOCStateQuery::State => {
-            let Goc {
-                started,
-                ending,
-                players,
-                prize_fund,
-                participation_cost,
-                last_winner,
-                ft_actor_id,
-                ..
-            } = contract;
-
-            GOCStateReply::State {
-                started: *started,
-                ending: *ending,
-                players: BTreeSet::from_iter(players.clone()),
-                prize_fund: *prize_fund,
-                participation_cost: *participation_cost,
-                last_winner: *last_winner,
-                ft_actor_id: *ft_actor_id,
-            }
-        }
+    let reply = GOCState {
+        ft_actor_id: *ft_actor_id,
+        started: *started,
+        ending: *ending,
+        players: BTreeSet::from_iter(players.clone()),
+        prize_fund: *prize_fund,
+        participation_cost: *participation_cost,
+        last_winner: *last_winner,
     };
 
     util::to_leak_ptr(reply.encode())
@@ -265,10 +258,11 @@ fn contract() -> &'static mut Goc {
 
 metadata! {
     title: "Game of chance",
+    init:
+        input: GOCInit,
     handle:
         input: GOCAction,
         output: GOCEvent,
     state:
-        input: GOCStateQuery,
-        output: GOCStateReply,
+        output: GOCState,
 }

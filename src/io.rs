@@ -4,7 +4,7 @@ use gstd::{prelude::*, ActorId};
 ///
 /// # Requirements
 /// - `admin` mustn't be [`ActorId::zero()`].
-#[derive(Debug, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, TypeInfo)]
+#[derive(Debug, Default, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Clone, TypeInfo)]
 pub struct GOCInit {
     /// [`ActorId`] of the game administrator that'll have the rights to
     /// [start a game round](GOCAction::Start) and
@@ -66,8 +66,8 @@ pub enum GOCAction {
     /// Pays a participation cost on behalf of [`msg::source()`] and adds it to
     /// the current game round participants (players).
     ///
-    /// A participation cost and its currency can be queried by
-    /// [`GOCStateQuery::State`].
+    /// A participation cost and its currency can be queried by the
+    /// `meta_state()` entry function.
     ///
     /// # Requirements
     /// - The players entry stage mustn't be over.
@@ -104,41 +104,29 @@ pub enum GOCEvent {
     PlayerAdded(ActorId),
 }
 
-/// Queries a contract state.
-#[derive(Debug, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, TypeInfo)]
-pub enum GOCStateQuery {
-    /// Queries the current game round state.
+/// The current game round state.
+#[derive(Debug, Default, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Clone, TypeInfo)]
+pub struct GOCState {
+    /// The start time (in milliseconds) of the current game round and the
+    /// players entry stage.
     ///
-    /// Returns [`GOCStateReply::State`].
-    State,
-}
-
-/// A reply to queried [`GOCStateQuery`].
-#[derive(Debug, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Clone, TypeInfo)]
-pub enum GOCStateReply {
-    /// Should be returned from [`GOCStateQuery::State`].
-    State {
-        /// The start time (in milliseconds) of the current game round and the
-        /// players entry stage.
-        ///
-        /// If it equals 0, a winner has picked and the round is over.
-        started: u64,
-        /// See the documentation of [`GOCEvent::Started`].
-        ending: u64,
-        /// Participants of the current game round.
-        players: BTreeSet<ActorId>,
-        /// The current game round prize fund.
-        ///
-        /// It's calculated by multiplying `participation_cost` and the number
-        /// of `players`.
-        prize_fund: u128,
-        /// See the documentation of [`GOCAction::Start`].
-        participation_cost: u128,
-        /// The winner of the previous game round.
-        last_winner: ActorId,
-        /// A currency (or a FT contract [`ActorId`]) of the current game round.
-        ///
-        /// See the documentation of [`GOCAction::Start`].
-        ft_actor_id: Option<ActorId>,
-    },
+    /// If it equals 0, a winner has picked and the round is over.
+    pub started: u64,
+    /// See the documentation of [`GOCEvent::Started`].
+    pub ending: u64,
+    /// Participants of the current game round.
+    pub players: BTreeSet<ActorId>,
+    /// The current game round prize fund.
+    ///
+    /// It's calculated by multiplying `participation_cost` and the number
+    /// of `players`.
+    pub prize_fund: u128,
+    /// See the documentation of [`GOCAction::Start`].
+    pub participation_cost: u128,
+    /// The winner of the previous game round.
+    pub last_winner: ActorId,
+    /// A currency (or a FT contract [`ActorId`]) of the current game round.
+    ///
+    /// See the documentation of [`GOCAction::Start`].
+    pub ft_actor_id: Option<ActorId>,
 }
