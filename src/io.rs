@@ -22,7 +22,7 @@ pub enum GOCAction {
     /// - The current game round must be over.
     /// - `ft_actor_id` mustn't be [`ActorId::zero()`].
     ///
-    /// On success, returns [`GOCEvent::Started`].
+    /// On success, replies with [`GOCEvent::Started`].
     ///
     /// [`msg::source()`]: gstd::msg::source
     Start {
@@ -57,7 +57,7 @@ pub enum GOCAction {
     /// - The players entry stage must be over.
     /// - A winner mustn't already be picked.
     ///
-    /// On success, returns [`GOCEvent::Winner`].
+    /// On success, replies with [`GOCEvent::Winner`].
     ///
     /// [`exec::block_timestamp()`]: gstd::exec::block_timestamp
     /// [`msg::source()`]: gstd::msg::source
@@ -78,7 +78,7 @@ pub enum GOCAction {
     /// is [`None`]), [`msg::source()`] must send this action with the amount of
     /// the value exactly equal to a participation cost.
     ///
-    /// On success, returns [`GOCEvent::PlayerAdded`].
+    /// On success, replies with [`GOCEvent::PlayerAdded`].
     ///
     /// [`msg::source()`]: gstd::msg::source
     Enter,
