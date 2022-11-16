@@ -7,7 +7,7 @@ authors = ["Gear Technologies"]
 
 [dependencies]
 gstd = { git = "https://github.com/gear-tech/gear.git", features = ["debug"], rev = "d4552434" }
-sp-core-hashing = { version = "4.0.0", default-features = false }
+sp-core-hashing = { version = "5.0.0", default-features = false }
 lt-io = { path = "io" }
 ft-io = { git = "https://github.com/gear-dapps/fungible-token.git", tag = "0.1.2" }
 
