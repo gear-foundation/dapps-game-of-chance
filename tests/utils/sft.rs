@@ -1,8 +1,8 @@
-use super::{Program, RunResult, FOREIGN_USER};
+use super::{Program, RunResult, TransactionProgram, FOREIGN_USER};
 use ft_logic_io::Action;
 use ft_main_io::{FTokenAction, FTokenEvent, InitFToken};
 use gstd::{prelude::*, ActorId};
-use gtest::{Program as InnerProgram, System};
+use gtest::{Log, Program as InnerProgram, RunResult as InnerRunResult, System};
 
 type SFTRunResult<T> = RunResult<T, FTokenEvent>;
 
@@ -14,13 +14,13 @@ impl Program for Sft<'_> {
     }
 }
 
-impl<'a> Sft<'a> {
-    fn transaction_id(&mut self) -> u64 {
-        let transaction_id = self.1;
-        self.1 = self.1.wrapping_add(1);
-        transaction_id
+impl TransactionProgram for Sft<'_> {
+    fn previous_mut_transaction_id(&mut self) -> &mut u64 {
+        &mut self.1
     }
+}
 
+impl<'a> Sft<'a> {
     pub fn initialize(system: &'a System) -> Self {
         let program = InnerProgram::from_file(system, "target/ft_main.opt.wasm");
         let storage_code: [u8; 32] = system.submit_code("target/ft_storage.opt.wasm").into();
@@ -39,10 +39,10 @@ impl<'a> Sft<'a> {
         Self(program, 0)
     }
 
-    pub fn mint(&mut self, recipient: u64, amount: u128) -> SFTRunResult<FTokenEvent> {
+    pub fn mint(&mut self, recipient: u64, amount: u128) {
         let transaction_id = self.transaction_id();
 
-        RunResult(
+        assert_ft_token_event_ok(
             self.0.send(
                 FOREIGN_USER,
                 FTokenAction::Message {
@@ -54,19 +54,13 @@ impl<'a> Sft<'a> {
                     .encode(),
                 },
             ),
-            |event| event,
         )
     }
 
-    pub fn approve(
-        &mut self,
-        from: u64,
-        approved_account: impl Into<ActorId>,
-        amount: u128,
-    ) -> SFTRunResult<FTokenEvent> {
+    pub fn approve(&mut self, from: u64, approved_account: impl Into<ActorId>, amount: u128) {
         let transaction_id = self.transaction_id();
 
-        RunResult(
+        assert_ft_token_event_ok(
             self.0.send(
                 from,
                 FTokenAction::Message {
@@ -78,8 +72,7 @@ impl<'a> Sft<'a> {
                     .encode(),
                 },
             ),
-            |event| event,
-        )
+        );
     }
 
     pub fn balance(&self, actor_id: impl Into<ActorId>) -> SFTRunResult<u128> {
@@ -89,4 +82,8 @@ impl<'a> Sft<'a> {
             FTokenEvent::Balance,
         )
     }
+}
+
+fn assert_ft_token_event_ok(is_ok: InnerRunResult) {
+    assert!(is_ok.contains(&Log::builder().payload(FTokenEvent::Ok)))
 }

@@ -1,4 +1,4 @@
-use common::{InitResult, MetaStateReply, Program, RunResult};
+use common::{InitResult, MetaStateReply, Program, RunResult, TransactionProgram};
 use gstd::{prelude::*, ActorId};
 use gtest::{Program as InnerProgram, System};
 use rand::{RngCore, SeedableRng};

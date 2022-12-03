@@ -26,16 +26,11 @@ fn two_rounds_and_meta_state() {
         ft_actor_id: None,
     });
 
-    sft.mint(PLAYERS[0], AMOUNT).contains(FTokenEvent::Ok);
-    sft.mint(PLAYERS[1], AMOUNT).contains(FTokenEvent::Ok);
-    sft.mint(PLAYERS[2], AMOUNT).contains(FTokenEvent::Ok);
+    for player in [0, 1, 2] {
+        sft.mint(PLAYERS[player], AMOUNT);
 
-    sft.approve(PLAYERS[0], goc.actor_id(), PARTICIPATION_COST)
-        .contains(FTokenEvent::Ok);
-    sft.approve(PLAYERS[1], goc.actor_id(), PARTICIPATION_COST)
-        .contains(FTokenEvent::Ok);
-    sft.approve(PLAYERS[2], goc.actor_id(), PARTICIPATION_COST)
-        .contains(FTokenEvent::Ok);
+        sft.approve(PLAYERS[player], goc.actor_id(), PARTICIPATION_COST);
+    }
 
     let mut started = system.block_timestamp();
     let mut ending = started + DURATION;
@@ -107,9 +102,9 @@ fn two_rounds_and_meta_state() {
         ft_actor_id,
     });
 
-    system.mint_to(PLAYERS[0], AMOUNT);
-    system.mint_to(PLAYERS[1], AMOUNT);
-    system.mint_to(PLAYERS[2], AMOUNT);
+    for player in [0, 1, 2] {
+        system.mint_to(PLAYERS[player], AMOUNT);
+    }
 
     ft_actor_id = None;
     started = system.block_timestamp();
@@ -282,13 +277,11 @@ fn prize_fund_overflow() {
     goc.start(ADMIN, DURATION, PARTICIPATION_COST, ft_actor_id)
         .contains((ending, PARTICIPATION_COST, ft_actor_id));
 
-    sft.mint(PLAYERS[0], AMOUNT).contains(FTokenEvent::Ok);
-    sft.mint(PLAYERS[1], AMOUNT).contains(FTokenEvent::Ok);
+    sft.mint(PLAYERS[0], AMOUNT);
+    sft.mint(PLAYERS[1], AMOUNT);
 
-    sft.approve(PLAYERS[0], goc.actor_id(), PARTICIPATION_COST)
-        .contains(FTokenEvent::Ok);
-    sft.approve(PLAYERS[1], goc.actor_id(), PARTICIPATION_COST)
-        .contains(FTokenEvent::Ok);
+    sft.approve(PLAYERS[0], goc.actor_id(), PARTICIPATION_COST);
+    sft.approve(PLAYERS[1], goc.actor_id(), PARTICIPATION_COST);
 
     goc.enter(PLAYERS[0]).contains(PLAYERS[0]);
     goc.enter(PLAYERS[1]).contains(PLAYERS[1]);

@@ -210,7 +210,7 @@ extern "C" fn init() {
 
 #[async_main]
 async fn main() {
-    let action: GOCAction = msg::load().expect("Failed to decode `GOCAction`");
+    let action: GOCAction = msg::load().expect("Failed to load or decode `GOCAction`");
     let contract = contract();
 
     let event = match action {
@@ -223,7 +223,7 @@ async fn main() {
         GOCAction::Enter => contract.enter().await,
     };
 
-    msg::reply(event, 0).expect("Failed to reply with `GOCEvent`");
+    msg::reply(event, 0).expect("Failed to encode or reply with `GOCEvent`");
 }
 
 #[no_mangle]

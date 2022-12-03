@@ -18,13 +18,11 @@ pub enum GOCAction {
     /// Starts a game round and allows to participate in it.
     ///
     /// # Requirements
-    /// - [`msg::source()`] must be the game administrator.
+    /// - [`msg::source()`](gstd::msg::source) must be the game administrator.
     /// - The current game round must be over.
     /// - `ft_actor_id` mustn't be [`ActorId::zero()`].
     ///
     /// On success, replies with [`GOCEvent::Started`].
-    ///
-    /// [`msg::source()`]: gstd::msg::source
     Start {
         /// The duration (in milliseconds) of the players entry stage.
         ///
@@ -44,7 +42,8 @@ pub enum GOCAction {
     /// Randomly picks a winner from current game round participants (players)
     /// and sends a prize fund to it.
     ///
-    /// The randomness of a winner pick depends on [`exec::block_timestamp()`].
+    /// The randomness of a winner pick depends on
+    /// [`exec::block_timestamp()`](gstd::exec::block_timestamp).
     /// Not the best source of entropy, but, in theory, it's impossible to
     /// exactly predict a winner if the time of an execution of this action is
     /// unknown.
@@ -53,18 +52,15 @@ pub enum GOCAction {
     /// [`ActorId::zero()`].
     ///
     /// # Requirements
-    /// - [`msg::source()`] must be the game administrator.
+    /// - [`msg::source()`](gstd::msg::source) must be the game administrator.
     /// - The players entry stage must be over.
     /// - A winner mustn't already be picked.
     ///
     /// On success, replies with [`GOCEvent::Winner`].
-    ///
-    /// [`exec::block_timestamp()`]: gstd::exec::block_timestamp
-    /// [`msg::source()`]: gstd::msg::source
     PickWinner,
 
-    /// Pays a participation cost on behalf of [`msg::source()`] and adds it to
-    /// the current game round participants (players).
+    /// Pays a participation cost and adds [`msg::source()`] to the current game
+    /// round participants (players).
     ///
     /// A participation cost and its currency can be queried by the
     /// `meta_state()` entry function.

@@ -33,18 +33,18 @@ pre-commit: fmt linter test
 test: build
 	@if [ ! -f "./target/ft_main.opt.wasm" ]; then\
 	    curl -L\
-	        "https://github.com/gear-dapps/sharded-fungible-token/releases/download/0.1.1/ft_main-0.1.1.opt.wasm"\
+	        "https://github.com/gear-dapps/sharded-fungible-token/releases/download/0.1.3/ft_main-0.1.3.opt.wasm"\
 	        -o "./target/ft_main.opt.wasm";\
 	fi
 	@if [ ! -f "./target/ft_logic.opt.wasm" ]; then\
 	    curl -L\
-	        "https://github.com/gear-dapps/sharded-fungible-token/releases/download/0.1.1/ft_logic-0.1.1.opt.wasm"\
+	        "https://github.com/gear-dapps/sharded-fungible-token/releases/download/0.1.3/ft_logic-0.1.3.opt.wasm"\
 	        -o "./target/ft_logic.opt.wasm";\
 	fi
 	@if [ ! -f "./target/ft_storage.opt.wasm" ]; then\
 	    curl -L\
-	        "https://github.com/gear-dapps/sharded-fungible-token/releases/download/0.1.1/ft_storage-0.1.1.opt.wasm"\
+	        "https://github.com/gear-dapps/sharded-fungible-token/releases/download/0.1.3/ft_storage-0.1.3.opt.wasm"\
 	        -o "./target/ft_storage.opt.wasm";\
 	fi
 	@echo ──────────── Run tests ────────────────────────
-	@cargo +nightly test --release
+	@cargo +nightly t
