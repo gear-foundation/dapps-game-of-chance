@@ -84,6 +84,6 @@ impl<'a> Sft<'a> {
     }
 }
 
-fn assert_ft_token_event_ok(is_ok: InnerRunResult) {
-    assert!(is_ok.contains(&Log::builder().payload(FTokenEvent::Ok)))
+fn assert_ft_token_event_ok(run_result: InnerRunResult) {
+    assert!(run_result.contains(&Log::builder().payload(FTokenEvent::Ok)))
 }
