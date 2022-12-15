@@ -8,8 +8,8 @@ use rand_xoshiro::Xoshiro128PlusPlus;
 
 mod io;
 
+use hashbrown::HashMap;
 pub use io::*;
-
 static mut CONTRACT: Option<Goc> = None;
 
 #[derive(Default, Debug)]
@@ -25,7 +25,7 @@ struct Goc {
 
     winner: ActorId,
 
-    transactions: BTreeMap<ActorId, u64>,
+    transactions: HashMap<ActorId, u64>,
     transaction_id_nonce: u64,
 }
 
