@@ -1,10 +1,17 @@
-use gstd::{prelude::*, ActorId};
+use gstd::{errors::ContractError, prelude::*, ActorId};
+
+/// The maximum number of participants for one game round.
+///
+/// The limited number of participants is required because this contract (like
+/// all the others) has a limited amount of memory, so it can't store too many
+/// participants.
+pub const MAX_NUMBER_OF_PLAYERS: usize = 2usize.pow(16);
 
 /// Initializes the Game of chance contract.
 ///
 /// # Requirements
 /// - `admin` mustn't be [`ActorId::zero()`].
-#[derive(Debug, Default, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Clone, TypeInfo)]
+#[derive(Debug, Default, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, TypeInfo)]
 pub struct GOCInit {
     /// [`ActorId`] of the game administrator that'll have the rights to
     /// [start a game round](GOCAction::Start) and
@@ -100,18 +107,36 @@ pub enum GOCEvent {
     PlayerAdded(ActorId),
 }
 
+#[derive(Debug, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Clone, TypeInfo)]
+pub enum GOCError {
+    AccessRestricted,
+    UnexpectedGameStatus,
+    ZeroActorId,
+    TokenTransferFailed,
+    MemoryLimitExceeded,
+    AlreadyParticipating,
+    InvalidParticipationCost,
+    ContractError(String),
+}
+
+impl From<ContractError> for GOCError {
+    fn from(error: ContractError) -> Self {
+        Self::ContractError(error.to_string())
+    }
+}
+
 /// The current game round state.
 #[derive(Debug, Default, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Clone, TypeInfo)]
 pub struct GOCState {
+    /// See the documentation of [`GOCInit`].
+    pub admin: ActorId,
     /// The start time (in milliseconds) of the current game round and the
     /// players entry stage.
-    ///
-    /// If it equals 0, a winner has picked and the round is over.
     pub started: u64,
     /// See the documentation of [`GOCEvent::Started`].
     pub ending: u64,
     /// Participants of the current game round.
-    pub players: BTreeSet<ActorId>,
+    pub players: Vec<ActorId>,
     /// The current game round prize fund.
     ///
     /// It's calculated by multiplying `participation_cost` and the number
@@ -119,10 +144,10 @@ pub struct GOCState {
     pub prize_fund: u128,
     /// See the documentation of [`GOCAction::Start`].
     pub participation_cost: u128,
-    /// The winner of the previous game round.
-    pub last_winner: ActorId,
+    /// The winner of the current game round.
+    pub winner: ActorId,
     /// A currency (or a FT contract [`ActorId`]) of the current game round.
     ///
-    /// See the documentation of [`GOCAction::Start`].
+    /// Also see the documentation of [`GOCAction::Start`].
     pub ft_actor_id: Option<ActorId>,
 }
