@@ -246,7 +246,7 @@ extern "C" fn meta_state() -> *mut [i32; 2] {
         ft_actor_id: *ft_actor_id,
         started: *started,
         ending: *ending,
-        players: BTreeSet::from_iter(players.clone()),
+        players: Vec::from_iter(players.clone()),
         prize_fund: *prize_fund,
         participation_cost: *participation_cost,
         winner: *last_winner,
