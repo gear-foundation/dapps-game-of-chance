@@ -125,8 +125,7 @@ pub enum GOCError {
     /// Most often, the reason is that a user didn't give an approval to the
     /// Game of chance contract or didn't have enough tokens for participating.
     TokenTransferFailed,
-    /// The contract reached the limit of protection against the memory
-    /// overflow.
+    /// The contract reached a limit of protection against the memory overflow.
     MemoryLimitExceeded,
     /// [`msg::source()`](gstd::msg::source) is already participating in the
     /// current game round.
