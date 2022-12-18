@@ -107,15 +107,38 @@ pub enum GOCEvent {
     PlayerAdded(ActorId),
 }
 
+/// Contract execution error variants.
 #[derive(Debug, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Clone, TypeInfo)]
 pub enum GOCError {
+    /// [`msg::source()`](gstd::msg::source) isn't the administrator.
     AccessRestricted,
+    /// The current game round wasn't in an expected game status.
+    ///
+    /// E.g. the game administrator can't pick a winner if the player entry
+    /// stage isn't over, or an user can't entry a game round if the entry
+    /// stage is over.
     UnexpectedGameStatus,
+    /// [`ActorId::zero()`] was found where it's forbidden.
     ZeroActorId,
+    /// The current FT contract failed to complete a transfer transaction.
+    ///
+    /// Most often, the reason is that a user didn't give an approval to the
+    /// Game of chance contract or didn't have enough tokens for participating.
     TokenTransferFailed,
+    /// The contract reached the limit of protection against the memory
+    /// overflow.
     MemoryLimitExceeded,
+    /// [`msg::source()`](gstd::msg::source) is already participating in the
+    /// current game round.
     AlreadyParticipating,
+    /// [`msg::source()`](gstd::msg::source) sent [`GOCAction::Enter`] with an
+    /// incorrent amount of the native value.
+    ///
+    /// An user should set the value manually because the current game round is
+    /// going without a FT contract (also see the [`GOCAction::Enter`]
+    /// documentation).
     InvalidParticipationCost,
+    /// See the [`ContractError`] documentation.
     ContractError(String),
 }
 

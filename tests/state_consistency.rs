@@ -15,6 +15,10 @@ const ALICE: [u8; 32] = [
     76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125,
 ];
 
+fn decode<T: Decode>(payload: Vec<u8>) -> T {
+    T::decode(&mut payload.as_slice()).expect("Failed to decode a reply")
+}
+
 async fn upload_code(client: &GearApi, path: &str) -> Result<H256> {
     let code_id = match client.upload_code_by_path(path).await {
         Ok((code_id, _)) => code_id.into(),
@@ -34,12 +38,44 @@ async fn upload_code(client: &GearApi, path: &str) -> Result<H256> {
     Ok(code_id.into())
 }
 
+async fn upload_program_and_wait_reply<T: Decode>(
+    client: &GearApi,
+    listener: &mut EventListener,
+    path: &str,
+    payload: impl Encode,
+) -> Result<([u8; 32], T)> {
+    let (message_id, program_id) = common_upload_program(client, path, payload).await?;
+    let (_, reply, _) = listener.reply_bytes_on(message_id.into()).await?;
+
+    let reply = decode(reply.expect("Received an error message instead of a reply"));
+
+    println!("Initialized `{path}`.");
+
+    Ok((program_id, reply))
+}
+
 async fn upload_program(
     client: &GearApi,
     listener: &mut EventListener,
     path: &str,
     payload: impl Encode,
 ) -> Result<[u8; 32]> {
+    let (message_id, program_id) = common_upload_program(client, path, payload).await?;
+
+    assert!(listener
+        .message_processed(message_id.into())
+        .await?
+        .succeed());
+    println!("Initialized `{path}`.");
+
+    Ok(program_id)
+}
+
+async fn common_upload_program(
+    client: &GearApi,
+    path: &str,
+    payload: impl Encode,
+) -> Result<([u8; 32], [u8; 32])> {
     let encoded_payload = payload.encode();
     let gas_limit = client
         .calculate_upload_gas(
@@ -56,10 +92,7 @@ async fn upload_program(
         .upload_program_by_path(path, gclient::bytes_now(), payload, gas_limit, 0)
         .await?;
 
-    assert!(listener.message_processed(message_id).await?.succeed());
-    println!("Initialized `{path}`.");
-
-    Ok(program_id.into())
+    Ok((message_id.into(), program_id.into()))
 }
 
 async fn send_message_with_custom_limit<T: Decode>(
@@ -90,7 +123,7 @@ async fn send_message_with_custom_limit<T: Decode>(
 
     let (_, reply, _) = listener.reply_bytes_on(message_id).await?;
 
-    Ok(reply.map(|reply| T::decode(&mut reply.as_slice()).expect("Failed to decode a reply")))
+    Ok(reply.map(|reply| decode(reply)))
 }
 
 async fn send_message<T: Decode>(
@@ -111,7 +144,7 @@ async fn send_message_for_goc(
     listener: &mut EventListener,
     destination: [u8; 32],
     payload: impl Encode + Debug,
-) -> Result<Result<GOCEvent, GOCError>, Error> {
+) -> Result<Result<GOCEvent, GOCError>> {
     send_message(client, listener, destination, payload).await
 }
 
@@ -150,7 +183,7 @@ async fn state_consistency() -> Result<()> {
     )
     .await?;
 
-    let goc_actor_id = upload_program(
+    let (goc_actor_id, reply) = upload_program_and_wait_reply::<Result<(), GOCError>>(
         &client,
         &mut listener,
         "target/wasm32-unknown-unknown/release/game_of_chance.opt.wasm",
@@ -159,6 +192,7 @@ async fn state_consistency() -> Result<()> {
         },
     )
     .await?;
+    assert_eq!(reply, Ok(()));
 
     let amount = 12345;
 
