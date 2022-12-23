@@ -186,7 +186,7 @@ async fn state_consistency() -> Result<()> {
     let (goc_actor_id, reply) = upload_program_and_wait_reply::<Result<(), GOCError>>(
         &client,
         &mut listener,
-        "target/wasm32-unknown-unknown/release/game_of_chance.opt.wasm",
+        "target/wasm32-unknown-unknown/debug/game_of_chance.opt.wasm",
         GOCInit {
             admin: ALICE.into(),
         },

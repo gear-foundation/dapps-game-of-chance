@@ -14,6 +14,8 @@ mod io;
 
 pub use io::*;
 
+const MAX_NUMBER_OF_TXS: usize = 2usize.pow(16);
+
 static mut STATE: Option<Goc> = None;
 
 #[derive(Default, Debug)]
@@ -30,8 +32,9 @@ struct Goc {
 
     winner: ActorId,
 
-    transactions: HashMap<ActorId, u64>,
-    transaction_id_nonce: u64,
+    txs_for_actor: BTreeMap<u64, ActorId>,
+    actors_for_tx: HashMap<ActorId, u64>,
+    tx_id_nonce: u64,
 }
 
 impl Goc {
@@ -136,13 +139,30 @@ impl Goc {
         recipient: ActorId,
         amount: u128,
     ) -> Result<(), GOCError> {
-        let transaction_id = *self.transactions.entry(msg_source).or_insert_with(|| {
-            let id = self.transaction_id_nonce;
+        let transaction_id = if let Some(id) = self.actors_for_tx.get(&msg_source) {
+            *id
+        } else {
+            let id = self.tx_id_nonce;
 
-            self.transaction_id_nonce = self.transaction_id_nonce.wrapping_add(1);
+            self.tx_id_nonce = id.wrapping_add(1);
+
+            if self.txs_for_actor.len() == MAX_NUMBER_OF_TXS {
+                let (tx, actor) = self
+                    .txs_for_actor
+                    .range(self.tx_id_nonce..)
+                    .next()
+                    .unwrap_or_else(|| self.txs_for_actor.first_key_value().unwrap());
+                let (tx, actor) = (*tx, *actor);
+
+                self.txs_for_actor.remove(&tx);
+                self.actors_for_tx.remove(&actor);
+            }
+
+            self.txs_for_actor.insert(id, msg_source);
+            self.actors_for_tx.insert(msg_source, id);
 
             id
-        });
+        };
 
         let result = match msg::send_for_reply_as(
             ft_actor_id,
@@ -164,7 +184,8 @@ impl Goc {
             _ => unreachable!("Received an unexpected `FTokenEvent` variant"),
         };
 
-        self.transactions.remove(&msg_source);
+        self.txs_for_actor.remove(&transaction_id);
+        self.actors_for_tx.remove(&msg_source);
 
         result
     }
