@@ -23,9 +23,9 @@ fn two_rounds_and_meta_state() {
         ..Default::default()
     });
 
-    for player in [0, 1, 2] {
-        sft.mint(PLAYERS[player], AMOUNT);
-        sft.approve(PLAYERS[player], goc.actor_id(), PARTICIPATION_COST);
+    for player in PLAYERS {
+        sft.mint(player, AMOUNT);
+        sft.approve(player, goc.actor_id(), PARTICIPATION_COST);
     }
 
     let mut started = system.block_timestamp();
@@ -82,8 +82,8 @@ fn two_rounds_and_meta_state() {
         ft_actor_id,
     });
 
-    for player in [0, 1, 2] {
-        system.mint_to(PLAYERS[player], AMOUNT);
+    for player in PLAYERS {
+        system.mint_to(player, AMOUNT);
     }
 
     started = system.block_timestamp();
