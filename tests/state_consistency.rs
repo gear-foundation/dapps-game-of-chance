@@ -15,7 +15,6 @@ const ALICE: [u8; 32] = [
     212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133,
     76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125,
 ];
-const TIMESTAMP_CORRECTION: u64 = 3000;
 
 fn decode<T: Decode>(payload: Vec<u8>) -> Result<T> {
     Ok(T::decode(&mut payload.as_slice())?)
@@ -238,27 +237,19 @@ async fn state_consistency() -> Result<()> {
             .await?
     );
 
-    let duration = 15000;
-    let participation_cost = 10000;
-    let ft_actor_id = Some(ft_actor_id.into());
-
-    assert_eq!(
+    println!(
+        "{:?}",
         send_message_for_goc(
             &client,
             &mut listener,
             goc_actor_id,
             GOCAction::Start {
-                duration,
-                participation_cost,
-                ft_actor_id
+                duration: 15000,
+                participation_cost: 10000,
+                ft_actor_id: Some(ft_actor_id.into())
             }
         )
-        .await?,
-        Ok(GOCEvent::Started {
-            ending: client.last_block_timestamp().await? + duration - TIMESTAMP_CORRECTION,
-            participation_cost,
-            ft_actor_id
-        })
+        .await?
     );
 
     let mut payload = GOCAction::Enter;
