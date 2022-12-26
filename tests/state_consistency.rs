@@ -125,8 +125,6 @@ async fn send_message_with_custom_limit<T: Decode>(
 
     let (_, raw_reply, _) = listener.reply_bytes_on(message_id).await?;
 
-    // Ok(raw_reply.map(|reply| decode(reply)))
-
     Ok(match raw_reply {
         Ok(raw_reply) => Ok(decode(raw_reply)?),
         Err(error) => Err(error),
