@@ -16,13 +16,13 @@ fmt-check:
 	@cargo fmt --all --check
 
 init:
-	@echo ⚙️ Installing the toolchain & target...
+	@echo ⚙️ Installing a toolchain & a target...
 	@rustup toolchain add nightly
 	@rustup target add wasm32-unknown-unknown --toolchain nightly
 
 lint:
 	@echo ⚙️ Running the linter...
-	@cargo +nightly clippy --all-targets
+	@cargo +nightly clippy --all-targets -- -D warnings
 
 pre-commit: fmt lint full-test
 
