@@ -4,6 +4,7 @@ use ft_main_io::{FTokenAction, FTokenEvent, InitFToken};
 use game_of_chance::*;
 use gclient::{Error, EventListener, EventProcessor, GearApi, Result};
 use gstd::prelude::*;
+use pretty_assertions::assert_eq;
 use primitive_types::H256;
 use subxt::{
     error::{DispatchError, ModuleError, ModuleErrorData},
@@ -14,9 +15,10 @@ const ALICE: [u8; 32] = [
     212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133,
     76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125,
 ];
+const TIMESTAMP_CORRECTION: u64 = 3000;
 
-fn decode<T: Decode>(payload: Vec<u8>) -> T {
-    T::decode(&mut payload.as_slice()).expect("Failed to decode a reply")
+fn decode<T: Decode>(payload: Vec<u8>) -> Result<T> {
+    Ok(T::decode(&mut payload.as_slice())?)
 }
 
 async fn upload_code(client: &GearApi, path: &str) -> Result<H256> {
@@ -45,9 +47,9 @@ async fn upload_program_and_wait_reply<T: Decode>(
     payload: impl Encode,
 ) -> Result<([u8; 32], T)> {
     let (message_id, program_id) = common_upload_program(client, path, payload).await?;
-    let (_, reply, _) = listener.reply_bytes_on(message_id.into()).await?;
+    let (_, raw_reply, _) = listener.reply_bytes_on(message_id.into()).await?;
 
-    let reply = decode(reply.expect("Received an error message instead of a reply"));
+    let reply = decode(raw_reply.expect("Received an error message instead of a reply"))?;
 
     println!("Initialized `{path}`.");
 
@@ -111,7 +113,7 @@ async fn send_message_with_custom_limit<T: Decode>(
         .min_limit;
     let modified_gas_limit = modify_gas_limit(gas_limit);
 
-    println!("Sending payload: `{payload:?}`.");
+    println!("Sending a payload: `{payload:?}`.");
     println!("Calculated gas limit: {gas_limit}.");
     println!("Modified gas limit: {modified_gas_limit}.");
 
@@ -121,9 +123,14 @@ async fn send_message_with_custom_limit<T: Decode>(
 
     println!("Sending completed.");
 
-    let (_, reply, _) = listener.reply_bytes_on(message_id).await?;
+    let (_, raw_reply, _) = listener.reply_bytes_on(message_id).await?;
 
-    Ok(reply.map(|reply| decode(reply)))
+    // Ok(raw_reply.map(|reply| decode(reply)))
+
+    Ok(match raw_reply {
+        Ok(raw_reply) => Ok(decode(raw_reply)?),
+        Err(error) => Err(error),
+    })
 }
 
 async fn send_message<T: Decode>(
@@ -166,7 +173,9 @@ async fn send_message_with_insufficient_gas(
 #[tokio::test]
 #[ignore]
 async fn state_consistency() -> Result<()> {
-    let client = GearApi::dev().await?;
+    let client = GearApi::dev()
+        .await
+        .expect("The node must be running for a gclient test");
     let mut listener = client.subscribe().await?;
 
     let storage_code_hash = upload_code(&client, "target/ft_storage.wasm").await?;
@@ -231,19 +240,27 @@ async fn state_consistency() -> Result<()> {
             .await?
     );
 
-    println!(
-        "{:?}",
-        send_message::<Result<GOCEvent, GOCError>>(
+    let duration = 15000;
+    let participation_cost = 10000;
+    let ft_actor_id = Some(ft_actor_id.into());
+
+    assert_eq!(
+        send_message_for_goc(
             &client,
             &mut listener,
             goc_actor_id,
             GOCAction::Start {
-                duration: 15000,
-                participation_cost: 10000,
-                ft_actor_id: Some(ft_actor_id.into())
+                duration,
+                participation_cost,
+                ft_actor_id
             }
         )
-        .await?
+        .await?,
+        Ok(GOCEvent::Started {
+            ending: client.last_block_timestamp().await? + duration - TIMESTAMP_CORRECTION,
+            participation_cost,
+            ft_actor_id
+        })
     );
 
     let mut payload = GOCAction::Enter;
@@ -252,12 +269,9 @@ async fn state_consistency() -> Result<()> {
         "{}",
         send_message_with_insufficient_gas(&client, &mut listener, goc_actor_id, payload).await?
     );
-    // TODO: add an equality check for reply after after introducing an
-    // equivalent to the gtest's `System::block_timestamp()` function
-    // (https://github.com/gear-tech/gear/issues/1962#issuecomment-1354489919).
-    println!(
-        "{:?}",
-        send_message_for_goc(&client, &mut listener, goc_actor_id, payload).await?
+    assert_eq!(
+        send_message_for_goc(&client, &mut listener, goc_actor_id, payload).await?,
+        Ok(GOCEvent::PlayerAdded(ALICE.into()))
     );
 
     payload = GOCAction::PickWinner;

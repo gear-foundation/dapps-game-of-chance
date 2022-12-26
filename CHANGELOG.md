@@ -7,11 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ## [0.3.0] - 2022-12-19
 ### Added
-- The error handling support. Now the contract doesn't panic on every handleable error and gracefully return a self-describing error. Tests became more reliable.
+- The error handling support. Now the contract doesn't panic on every handleable error and gracefully returns a self-describing error. Tests became more reliable.
 - A limit of participants to avoid the contract memory overflow.
 ### Changed
 - `BTreeMap` was replaced by `HashMap` for performance reasons.
-- The logic of interaction with the FT contract was updated. Now GOC shouldn't stuck on failed token transfer transactions.
+- The logic of interaction with the FT contract was updated. Now GOC shouldn't get stuck on failed token transfer transactions.
 - Updated logic of determining a status of the current game round. There were some bugs when a game round ends without participants.
 
 ## [0.2.2] - 2022-12-14
