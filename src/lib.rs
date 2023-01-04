@@ -30,7 +30,7 @@ struct Goc {
     participation_cost: u128,
     is_active: bool,
 
-    winner: ActorId,
+    winner: Option<ActorId>,
 
     txs_for_actor: BTreeMap<u64, ActorId>,
     actors_for_tx: HashMap<ActorId, u64>,
@@ -58,7 +58,7 @@ impl Goc {
 
         self.players.clear();
 
-        self.winner = ActorId::zero();
+        self.winner = None;
         self.prize_fund = 0;
         self.started = exec::block_timestamp();
         self.ending = self.started.saturating_add(duration);
@@ -99,33 +99,36 @@ impl Goc {
             return Err(GOCError::AccessRestricted);
         }
 
-        let winner = if self.players.is_empty() {
-            ActorId::zero()
-        } else {
-            let mut random_data = [0; (usize::BITS / 8) as usize];
-
-            Xoshiro128PlusPlus::seed_from_u64(block_timestamp).fill_bytes(&mut random_data);
-
-            let mystical_number = usize::from_le_bytes(random_data);
-            let winner = self.players[mystical_number % self.players.len()];
-
-            if let Some(ft_actor_id) = self.ft_actor_id {
-                self.transfer_tokens(
-                    ft_actor_id,
-                    self.admin,
-                    exec_program,
-                    winner,
-                    self.prize_fund,
-                )
-                .await?;
+        let winner = self.winner.unwrap_or_else(|| {
+            let winner = if self.players.is_empty() {
+                ActorId::zero()
             } else {
-                send_value(winner, self.prize_fund)?;
-            }
+                let mut random_data = [0; (usize::BITS / 8) as usize];
+
+                Xoshiro128PlusPlus::seed_from_u64(block_timestamp).fill_bytes(&mut random_data);
+
+                let mystical_number = usize::from_le_bytes(random_data);
+                self.players[mystical_number % self.players.len()]
+            };
+
+            self.winner = Some(winner);
 
             winner
-        };
+        });
 
-        self.winner = winner;
+        if let Some(ft_actor_id) = self.ft_actor_id {
+            self.transfer_tokens(
+                ft_actor_id,
+                self.admin,
+                exec_program,
+                winner,
+                self.prize_fund,
+            )
+            .await?;
+        } else {
+            send_value(winner, self.prize_fund)?;
+        }
+
         self.is_active = false;
 
         Ok(GOCEvent::Winner(winner))
@@ -311,7 +314,7 @@ extern "C" fn meta_state() -> *mut [i32; 2] {
         players: players.clone(),
         prize_fund: *prize_fund,
         participation_cost: *participation_cost,
-        winner: *winner,
+        winner: winner.unwrap_or_default(),
     };
 
     util::to_leak_ptr(reply.encode())
