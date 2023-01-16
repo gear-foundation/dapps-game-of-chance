@@ -35,6 +35,7 @@ jobs:
         run: |
           wget -c https://github.com/WebAssembly/binaryen/releases/download/version_110/binaryen-version_110-x86_64-linux.tar.gz -O - | tar -xz -C .
           sudo cp binaryen-version_110/bin/wasm-opt /usr/bin/
+
       - name: Check fmt
         run: make fmt
 
