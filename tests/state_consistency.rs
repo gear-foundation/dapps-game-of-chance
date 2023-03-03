@@ -48,7 +48,9 @@ async fn upload_program_and_wait_reply<T: Decode>(
 ) -> Result<([u8; 32], T)> {
     let (message_id, program_id) = common_upload_program(client, code, payload).await?;
     let (_, raw_reply, _) = listener.reply_bytes_on(message_id.into()).await?;
-    let reply = decode(raw_reply.expect("Received an error message instead of a reply"))?;
+    let reply = decode(
+        raw_reply.expect("initialization failed, received an error message instead of a reply"),
+    )?;
 
     Ok((program_id, reply))
 }
@@ -137,7 +139,7 @@ async fn send_message<T: Decode>(
     Ok(
         send_message_with_custom_limit(client, listener, destination, payload, |gas| gas * 7)
             .await?
-            .expect("Received an error message instead of a reply"),
+            .expect("action failed, received an error message instead of a reply"),
     )
 }
 
@@ -161,25 +163,23 @@ async fn send_message_with_insufficient_gas(
             gas - gas / 100
         })
         .await?
-        .expect_err("Received a reply instead of an error message"),
+        .expect_err("received a reply instead of an error message"),
     )
 }
 
 #[tokio::test]
 #[ignore]
 async fn state_consistency() -> Result<()> {
-    let client = GearApi::dev()
-        .await
-        .expect("The node must be running for a gclient test");
+    let client = GearApi::dev().await.expect("running node wasn't found");
     let mut listener = client.subscribe().await?;
 
-    let storage_code_hash = upload_code(&client, "target/ft_storage.wasm").await?;
-    let ft_logic_code_hash = upload_code(&client, "target/ft_logic.wasm").await?;
+    let storage_code_hash = upload_code(&client, "target/ft-storage.wasm").await?;
+    let ft_logic_code_hash = upload_code(&client, "target/ft-logic.wasm").await?;
 
     let ft_actor_id = upload_program(
         &client,
         &mut listener,
-        "target/ft_main.wasm",
+        "target/ft-main.wasm",
         InitFToken {
             storage_code_hash,
             ft_logic_code_hash,
