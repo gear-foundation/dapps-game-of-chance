@@ -5,7 +5,6 @@ use ft_main_io::{FTokenAction, FTokenEvent};
 use game_of_chance_io::*;
 use gstd::{errors::Result as GstdResult, exec, msg, prelude::*, ActorId, MessageId};
 use hashbrown::HashMap;
-use hint::unreachable_unchecked;
 use rand::{RngCore, SeedableRng};
 use rand_xoshiro::Xoshiro128PlusPlus;
 
@@ -152,7 +151,13 @@ impl Contract {
                     .txs_for_actor
                     .range(self.tx_id_nonce..)
                     .next()
-                    .unwrap_or_else(|| self.txs_for_actor.first_key_value().unwrap());
+                    .unwrap_or_else(|| {
+                        let key_value = self.txs_for_actor.first_key_value();
+
+                        debug_assert!(key_value.is_some(), "tx cache cycle is corrupted, perhaps the `MAX_NUMBER_OF_TXS` constant is less than 2");
+
+                        unsafe { key_value.unwrap_unchecked() }
+                    });
                 let (tx, actor) = (*tx, *actor);
 
                 self.txs_for_actor.remove(&tx);
@@ -276,7 +281,7 @@ async fn main() {
 
 async fn process_handle() -> Result<Event, Error> {
     let action: Action = msg::load()?;
-    let contract = unsafe { state_mut() };
+    let contract = state_mut();
 
     match action {
         Action::Start {
@@ -289,11 +294,12 @@ async fn process_handle() -> Result<Event, Error> {
     }
 }
 
-unsafe fn state_mut() -> &'static mut Contract {
-    match &mut STATE {
-        Some(state) => state,
-        None => unreachable_unchecked(),
-    }
+fn state_mut() -> &'static mut Contract {
+    let state = unsafe { STATE.as_mut() };
+
+    debug_assert!(state.is_some(), "state isn't initialized");
+
+    unsafe { state.unwrap_unchecked() }
 }
 
 #[no_mangle]
@@ -309,7 +315,7 @@ extern "C" fn state() {
         winner,
         is_active,
         ..
-    } = unsafe { state_mut() };
+    } = state_mut();
 
     let state = State {
         admin: *admin,
