@@ -20,7 +20,7 @@ game-of-chance-io = { path = "io" }
 gtest = { git = "https://github.com/gear-tech/gear.git" }
 gstd = { git = "https://github.com/gear-tech/gear.git", branch = "testnet", features = ["debug"] }
 gclient = { git = "https://github.com/gear-tech/gear.git" }
-sp-core-hashing = "6"
+sp-core-hashing = "7"
 subxt = { version = "0.27", default-features = false }
 primitive-types = "0.12"
 tokio = "1"
