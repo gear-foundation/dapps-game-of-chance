@@ -12,7 +12,7 @@ scale-info = { version = "2", default-features = false }
 rand = { version = "0.8", default-features = false }
 rand_xoshiro = "0.6"
 ft-main-io = { git = "https://github.com/gear-dapps/sharded-fungible-token.git", tag = "0.1.5" }
-ft-logic-io = { git = "https://github.com/gear-dapps/sharded-fungible-token.git", tag = "0.1.5" }
+ft-logic-io = { git = "https://github.com/gear-dapps/sharded-fungible-token.git", tag = "2.0.0" }
 hashbrown = "0.13"
 game-of-chance-io = { path = "io" }
 
