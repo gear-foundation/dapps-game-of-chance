@@ -1,6 +1,5 @@
 use fmt::Debug;
-use ft_logic_io::Action as FTAction;
-use ft_main_io::{FTokenAction, FTokenEvent, InitFToken};
+use ft_main_io::{FTokenAction, FTokenEvent, InitFToken, LogicAction};
 use game_of_chance::WASM_BINARY_OPT;
 use game_of_chance_io::*;
 use gclient::{Error as GclientError, EventListener, EventProcessor, GearApi, Result};
@@ -208,11 +207,10 @@ async fn state_consistency() -> Result<()> {
                 ft_actor_id,
                 FTokenAction::Message {
                     transaction_id: 0,
-                    payload: FTAction::Mint {
+                    payload: LogicAction::Mint {
                         recipient: ALICE.into(),
                         amount,
-                    }
-                    .encode(),
+                    },
                 },
             )
             .await?
@@ -225,11 +223,10 @@ async fn state_consistency() -> Result<()> {
                 ft_actor_id,
                 FTokenAction::Message {
                     transaction_id: 1,
-                    payload: FTAction::Approve {
+                    payload: LogicAction::Approve {
                         approved_account: goc_actor_id.into(),
                         amount,
-                    }
-                    .encode(),
+                    },
                 },
             )
             .await?
