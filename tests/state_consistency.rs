@@ -172,13 +172,13 @@ async fn state_consistency() -> Result<()> {
     let client = GearApi::dev_from_path(env!("GEAR_NODE_PATH")).await?;
     let mut listener = client.subscribe().await?;
 
-    let storage_code_hash = upload_code(&client, "target/ft-storage.wasm").await?;
-    let ft_logic_code_hash = upload_code(&client, "target/ft-logic.wasm").await?;
+    let storage_code_hash = upload_code(&client, "target/ft_storage.wasm").await?;
+    let ft_logic_code_hash = upload_code(&client, "target/ft_logic.wasm").await?;
 
     let ft_actor_id = upload_program(
         &client,
         &mut listener,
-        "target/ft-main.wasm",
+        "target/ft_main.wasm",
         InitFToken {
             storage_code_hash,
             ft_logic_code_hash,
