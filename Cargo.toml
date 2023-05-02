@@ -20,7 +20,7 @@ gstd = { git = "https://github.com/gear-tech/gear", rev = "5c685d0f15c412ab6ee01
 gtest = { git = "https://github.com/gear-tech/gear", rev = "5c685d0f15c412ab6ee019ceaf7ce084426dfb68" }
 gclient = { git = "https://github.com/gear-tech/gear", rev = "5c685d0f15c412ab6ee019ceaf7ce084426dfb68" }
 sp-core-hashing = "8.0.0"
-subxt = { version = "0.27", default-features = false }
+subxt = { version = "0.28", default-features = false }
 primitive-types = "0.12"
 tokio = "1"
 pretty_assertions = "1"
