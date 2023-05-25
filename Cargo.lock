@@ -1063,7 +1063,7 @@ checksum = "0845fa252299212f0389d64ba26f34fa32cfe41588355f21ed507c59a0f64541"
 [[package]]
 name = "ft-main-io"
 version = "2.1.2"
-source = "git+https://github.com/gear-dapps/sharded-fungible-token?branch=feat/update-deps#4fadc764abf3f83b853920b750e2b9135e16dc89"
+source = "git+https://github.com/gear-dapps/sharded-fungible-token?tag=2.1.2#d01210c518ea294bc6b0aea0ecb1fc1ee1a7b23f"
 dependencies = [
  "gmeta",
  "gstd",
@@ -2736,9 +2736,9 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "1.8.2"
+version = "1.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1a59b5d8e97dee33696bf13c5ba8ab85341c002922fba050069326b9c498974"
+checksum = "81ca098a9821bd52d6b24fd8b10bd081f47d39c22778cafaa75a2857a62c6390"
 dependencies = [
  "aho-corasick",
  "memchr",
