@@ -11,7 +11,7 @@ parity-scale-codec = { version = "3", default-features = false }
 scale-info = { version = "2", default-features = false }
 rand = { version = "0.8", default-features = false }
 rand_xoshiro = "0.6"
-ft-main-io = { git = "https://github.com/gear-dapps/sharded-fungible-token", tag = "2.1.1" }
+ft-main-io = { git = "https://github.com/gear-dapps/sharded-fungible-token", tag = "2.1.2" }
 hashbrown = "0.13"
 game-of-chance-io = { path = "io" }
 
