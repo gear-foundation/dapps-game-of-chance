@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
   pages: write
+  id-token: write
 
 env:
   CARGO_TERM_COLOR: always
@@ -32,16 +33,16 @@ jobs:
           cargo doc --no-deps --workspace
 
       - name: Setup GitHub Pages
-        if: github.event_name == 'push'
+        # if: github.event_name == 'push'
         uses: actions/configure-pages@v3
 
       - name: Upload Pages artifact
-        if: github.event_name == 'push'
+        # if: github.event_name == 'push'
         uses: actions/upload-pages-artifact@v1
         with:
             path: target/doc
 
       - name: Deploy
-        if: github.event_name == 'push'
+        # if: github.event_name == 'push'
         id: deployment
         uses: actions/deploy-pages@v2
