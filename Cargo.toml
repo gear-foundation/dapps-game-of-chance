@@ -47,10 +47,10 @@ gmeta = { git = "https://github.com/gear-tech/gear", rev = "946ac47" }
 gtest = { git = "https://github.com/gear-tech/gear", rev = "946ac47" }
 gclient = { git = "https://github.com/gear-tech/gear", rev = "946ac47" }
 gear-wasm-builder = { git = "https://github.com/gear-tech/gear", rev = "946ac47" }
-ft-main-io = { git = "https://github.com/gear-dapps/sharded-fungible-token", branch = "update-deps" }
-ft-main = { git = "https://github.com/gear-dapps/sharded-fungible-token", branch = "update-deps" }
-ft-logic = { git = "https://github.com/gear-dapps/sharded-fungible-token", branch = "update-deps" }
-ft-storage = { git = "https://github.com/gear-dapps/sharded-fungible-token", branch = "update-deps" }
+ft-main-io = { git = "https://github.com/gear-dapps/sharded-fungible-token", tag = "2.1.4" }
+ft-main = { git = "https://github.com/gear-dapps/sharded-fungible-token", tag = "2.1.4" }
+ft-logic = { git = "https://github.com/gear-dapps/sharded-fungible-token", tag = "2.1.4" }
+ft-storage = { git = "https://github.com/gear-dapps/sharded-fungible-token", tag = "2.1.4" }
 parity-scale-codec = { version = "3", default-features = false }
 scale-info = { version = "2", default-features = false }
 rand = { version = "0.8", default-features = false }
